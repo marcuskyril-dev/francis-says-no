@@ -1,0 +1,99 @@
+export interface Project {
+  id: string;
+  name: string;
+  totalBudget: number;
+  currency: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BudgetRole = "owner" | "admin" | "maintainer" | "guest";
+
+export interface BudgetMember {
+  budgetId: string;
+  userId: string;
+  role: BudgetRole;
+  invitedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetMemberIdentity {
+  userId: string;
+  role: BudgetRole;
+  email: string | null;
+  firstName: string | null;
+}
+
+export interface Expense {
+  id: string;
+  wishlistItemId: string;
+  amount: number;
+  description: string | null;
+  expenseDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectState {
+  selectedProjectId: string | null;
+  setSelectedProjectId: (projectId: string | null) => void;
+  resetSelectedProject: () => void;
+}
+
+export interface BudgetDashboardSummary {
+  id: string;
+  name: string;
+  totalBudget: number;
+  currency: string;
+}
+
+export interface ZoneDashboardMetrics {
+  id: string;
+  name: string;
+  allocatedBudget: number;
+  amountSpent: number;
+  itemsPurchased: number;
+  itemsLeftToPurchase: number;
+}
+
+export interface ProjectDashboardData {
+  budget: BudgetDashboardSummary;
+  zones: ZoneDashboardMetrics[];
+}
+
+export interface ZoneDetailItem {
+  id: string;
+  name: string;
+  allocatedBudget: number;
+  amountSpent: number;
+}
+
+export interface PurchasedItemRecord {
+  id: string;
+  wishlistItemId: string;
+  purchasedItemName: string;
+  actualItemName: string;
+  description: string;
+  expenseDescription: string;
+  budget: number;
+  amountSpent: number;
+  difference: number;
+  purchaseDate: string | null;
+}
+
+export interface ZoneDetailData {
+  zone: {
+    id: string;
+    budgetId: string;
+    name: string;
+    currency: string;
+  };
+  amountSpent: number;
+  allocatedBudget: number;
+  budgetLeft: number;
+  purchasedItems: ZoneDetailItem[];
+  unpurchasedItems: ZoneDetailItem[];
+  purchasedItemRecords: PurchasedItemRecord[];
+}

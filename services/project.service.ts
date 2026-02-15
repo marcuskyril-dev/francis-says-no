@@ -1,0 +1,632 @@
+import type {
+  BudgetMember,
+  BudgetMemberIdentity,
+  BudgetRole,
+  Project,
+  ProjectDashboardData,
+  ZoneDetailData
+} from "@/types";
+import { supabase, toServiceError } from "@/services/supabase";
+
+interface BudgetRow {
+  id: string;
+  name: string;
+  total_budget: number;
+  currency: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ZoneRow {
+  id: string;
+  name: string | null;
+  budget_id?: string;
+  allocated_budget?: number | string | null;
+  allocatedBudget?: number | string | null;
+  budgets?: Array<{
+    currency: string | null;
+  }> | null;
+}
+
+interface WishlistItemRow {
+  id: string;
+  zone_id: string;
+  budget?: number | string | null;
+}
+
+interface WishlistItemDetailRow {
+  id: string;
+  zone_id: string;
+  name: string | null;
+  budget: number | string | null;
+}
+
+interface ExpenseSummaryRow {
+  wishlist_item_id: string;
+  amount: number | string;
+}
+
+interface ExpenseDetailRow {
+  id: string;
+  wishlist_item_id: string;
+  amount: number | string;
+  description: string | null;
+  expense_date: string | null;
+}
+
+interface BudgetMemberRow {
+  budget_id: string;
+  user_id: string;
+  role: BudgetRole;
+  invited_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface BudgetMemberIdentityRow {
+  user_id: string;
+  role: BudgetRole;
+  email: string | null;
+  first_name: string | null;
+}
+
+interface InviteBudgetMemberRow {
+  member_user_id: string;
+  member_role: BudgetRole;
+  member_email: string | null;
+  member_first_name: string | null;
+}
+
+const MISSING_USER_MESSAGE = "No user found for this email.";
+
+const isMissingUserInviteError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.toLowerCase().includes(MISSING_USER_MESSAGE.toLowerCase());
+};
+
+const inviteAuthUserByEmail = async (email: string): Promise<void> => {
+  const { error } = await supabase.auth.admin.inviteUserByEmail(email);
+  if (error) {
+    throw toServiceError("Failed to invite auth user", error);
+  }
+};
+
+const mapBudgetRowToProject = (row: BudgetRow): Project => ({
+  id: row.id,
+  name: row.name,
+  totalBudget: Number(row.total_budget),
+  currency: row.currency ?? "SGD",
+  userId: row.user_id,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const mapBudgetMemberRow = (row: BudgetMemberRow): BudgetMember => ({
+  budgetId: row.budget_id,
+  userId: row.user_id,
+  role: row.role,
+  invitedBy: row.invited_by,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const mapBudgetMemberIdentityRow = (row: BudgetMemberIdentityRow): BudgetMemberIdentity => ({
+  userId: row.user_id,
+  role: row.role,
+  email: row.email,
+  firstName: row.first_name
+});
+
+const getCurrentUserId = async (): Promise<string | null> => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    throw toServiceError("Failed to resolve current user", error);
+  }
+
+  return data.user?.id ?? null;
+};
+
+const toNumber = (value: number | string | null | undefined): number => {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsedValue = Number(value);
+    return Number.isFinite(parsedValue) ? parsedValue : 0;
+  }
+
+  return 0;
+};
+
+const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboardData> => {
+  const { data: zoneData, error: zoneError } = await supabase
+    .from("zones")
+    .select("*")
+    .eq("budget_id", budgetRow.id);
+
+  if (zoneError) {
+    throw toServiceError("Failed to list zones for budget", zoneError);
+  }
+
+  const zones = (zoneData ?? []) as ZoneRow[];
+  if (zones.length === 0) {
+    return {
+      budget: {
+        id: budgetRow.id,
+        name: budgetRow.name,
+        totalBudget: Number(budgetRow.total_budget),
+        currency: budgetRow.currency ?? "SGD"
+      },
+      zones: []
+    };
+  }
+
+  const zoneIds = zones.map((zone) => zone.id);
+  const { data: wishlistData, error: wishlistError } = await supabase
+    .from("wishlist_items")
+    .select("id, zone_id, budget")
+    .in("zone_id", zoneIds);
+
+  if (wishlistError) {
+    throw toServiceError("Failed to list zone wishlist items", wishlistError);
+  }
+
+  const wishlistItems = (wishlistData ?? []) as WishlistItemRow[];
+  const wishlistIds = wishlistItems.map((wishlistItem) => wishlistItem.id);
+
+  const expenseTotalsByWishlistItem = new Map<string, number>();
+  if (wishlistIds.length > 0) {
+    const { data: expenseData, error: expenseError } = await supabase
+      .from("expenses")
+      .select("wishlist_item_id, amount")
+      .in("wishlist_item_id", wishlistIds);
+
+    if (expenseError) {
+      throw toServiceError("Failed to list expenses for wishlist items", expenseError);
+    }
+
+    for (const expense of (expenseData ?? []) as ExpenseSummaryRow[]) {
+      const existingAmount = expenseTotalsByWishlistItem.get(expense.wishlist_item_id) ?? 0;
+      expenseTotalsByWishlistItem.set(
+        expense.wishlist_item_id,
+        existingAmount + toNumber(expense.amount)
+      );
+    }
+  }
+
+  const wishlistIdsByZone = new Map<string, string[]>();
+  const allocatedBudgetByZone = new Map<string, number>();
+  for (const item of wishlistItems) {
+    const existingItems = wishlistIdsByZone.get(item.zone_id) ?? [];
+    existingItems.push(item.id);
+    wishlistIdsByZone.set(item.zone_id, existingItems);
+
+    const existingAllocatedBudget = allocatedBudgetByZone.get(item.zone_id) ?? 0;
+    allocatedBudgetByZone.set(item.zone_id, existingAllocatedBudget + toNumber(item.budget));
+  }
+
+  const zoneMetrics = zones.map((zone) => {
+    const zoneWishlistIds = wishlistIdsByZone.get(zone.id) ?? [];
+    const itemsPurchased = zoneWishlistIds.filter((wishlistId) =>
+      expenseTotalsByWishlistItem.has(wishlistId)
+    ).length;
+    const amountSpent = zoneWishlistIds.reduce(
+      (sum, wishlistId) => sum + (expenseTotalsByWishlistItem.get(wishlistId) ?? 0),
+      0
+    );
+
+    return {
+      id: zone.id,
+      name: zone.name ?? "Untitled zone",
+      allocatedBudget: allocatedBudgetByZone.get(zone.id) ?? 0,
+      amountSpent,
+      itemsPurchased,
+      itemsLeftToPurchase: Math.max(zoneWishlistIds.length - itemsPurchased, 0)
+    };
+  });
+
+  return {
+    budget: {
+      id: budgetRow.id,
+      name: budgetRow.name,
+      totalBudget: Number(budgetRow.total_budget),
+      currency: budgetRow.currency ?? "SGD"
+    },
+    zones: zoneMetrics
+  };
+};
+
+export const projectService = {
+  list: async (): Promise<Project[]> => {
+    const { data, error } = await supabase
+      .from("budgets")
+      .select("id, name, total_budget, currency, user_id, created_at, updated_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw toServiceError("Failed to list projects", error);
+    }
+
+    return (data ?? []).map((row) => mapBudgetRowToProject(row as BudgetRow));
+  },
+
+  getById: async (projectId: string): Promise<Project> => {
+    const { data, error } = await supabase
+      .from("budgets")
+      .select("id, name, total_budget, currency, user_id, created_at, updated_at")
+      .eq("id", projectId)
+      .single();
+
+    if (error) {
+      throw toServiceError("Failed to get project", error);
+    }
+
+    return mapBudgetRowToProject(data as BudgetRow);
+  },
+
+  getLatestDashboardData: async (): Promise<ProjectDashboardData | null> => {
+    const { data: budgetData, error: budgetError } = await supabase
+      .from("budgets")
+      .select("id, name, total_budget, currency, user_id, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (budgetError) {
+      throw toServiceError("Failed to get latest budget", budgetError);
+    }
+
+    if (!budgetData) {
+      return null;
+    }
+
+    return buildDashboardData(budgetData as BudgetRow);
+  },
+
+  getDashboardDataByBudgetId: async (budgetId: string): Promise<ProjectDashboardData | null> => {
+    const { data: budgetData, error: budgetError } = await supabase
+      .from("budgets")
+      .select("id, name, total_budget, currency, user_id, created_at, updated_at")
+      .eq("id", budgetId)
+      .maybeSingle();
+
+    if (budgetError) {
+      throw toServiceError("Failed to get budget", budgetError);
+    }
+
+    if (!budgetData) {
+      return null;
+    }
+
+    return buildDashboardData(budgetData as BudgetRow);
+  },
+
+  createBudget: async (name: string, totalBudget: number): Promise<Project> => {
+    const sanitizedName = name.trim();
+    if (!sanitizedName) {
+      throw new Error("Budget name is required.");
+    }
+
+    if (!Number.isFinite(totalBudget) || totalBudget < 0) {
+      throw new Error("Total budget must be at least 0.");
+    }
+
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      throw new Error("You must be signed in to create a budget.");
+    }
+
+    const { data, error } = await supabase
+      .from("budgets")
+      .insert({
+        name: sanitizedName,
+        total_budget: totalBudget,
+        currency: "SGD",
+        user_id: userId
+      })
+      .select("id, name, total_budget, currency, user_id, created_at, updated_at")
+      .single();
+
+    if (error) {
+      throw toServiceError("Failed to create budget", error);
+    }
+
+    return mapBudgetRowToProject(data as BudgetRow);
+  },
+
+  createZone: async (budgetId: string, name: string): Promise<{ id: string }> => {
+    const sanitizedName = name.trim();
+    if (!sanitizedName) {
+      throw new Error("Zone name is required.");
+    }
+
+    const { data, error } = await supabase
+      .from("zones")
+      .insert({ budget_id: budgetId, name: sanitizedName })
+      .select("id")
+      .single();
+
+    if (error) {
+      throw toServiceError("Failed to create zone", error);
+    }
+
+    return { id: data.id as string };
+  },
+
+  createWishlistItem: async (
+    zoneId: string,
+    name: string,
+    budget: number
+  ): Promise<{ id: string }> => {
+    const sanitizedName = name.trim();
+    if (!sanitizedName) {
+      throw new Error("Wishlist item name is required.");
+    }
+
+    if (!Number.isFinite(budget) || budget < 0) {
+      throw new Error("Wishlist item budget must be at least 0.");
+    }
+
+    const { data, error } = await supabase
+      .from("wishlist_items")
+      .insert({
+        zone_id: zoneId,
+        name: sanitizedName,
+        budget
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      throw toServiceError("Failed to create wishlist item", error);
+    }
+
+    return { id: data.id as string };
+  },
+
+  getZoneDetailById: async (zoneId: string): Promise<ZoneDetailData | null> => {
+    const { data: zoneData, error: zoneError } = await supabase
+      .from("zones")
+      .select("id, name, budget_id, budgets(currency)")
+      .eq("id", zoneId)
+      .maybeSingle();
+
+    if (zoneError) {
+      throw toServiceError("Failed to get zone", zoneError);
+    }
+
+    if (!zoneData) {
+      return null;
+    }
+
+    const zone = zoneData as ZoneRow;
+    const { data: wishlistData, error: wishlistError } = await supabase
+      .from("wishlist_items")
+      .select("id, zone_id, name, budget")
+      .eq("zone_id", zoneId)
+      .order("created_at", { ascending: true });
+
+    if (wishlistError) {
+      throw toServiceError("Failed to list zone wishlist items", wishlistError);
+    }
+
+    const wishlistItems = (wishlistData ?? []) as WishlistItemDetailRow[];
+    const wishlistIds = wishlistItems.map((item) => item.id);
+
+    const expenseTotalsByWishlistItem = new Map<string, number>();
+    const expensesByWishlistItem = new Map<string, ExpenseDetailRow[]>();
+    if (wishlistIds.length > 0) {
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("expenses")
+        .select("id, wishlist_item_id, amount, description, expense_date")
+        .in("wishlist_item_id", wishlistIds);
+
+      if (expenseError) {
+        throw toServiceError("Failed to list zone expenses", expenseError);
+      }
+
+      for (const expense of (expenseData ?? []) as ExpenseDetailRow[]) {
+        const existingAmount = expenseTotalsByWishlistItem.get(expense.wishlist_item_id) ?? 0;
+        expenseTotalsByWishlistItem.set(
+          expense.wishlist_item_id,
+          existingAmount + toNumber(expense.amount)
+        );
+
+        const existingExpenses = expensesByWishlistItem.get(expense.wishlist_item_id) ?? [];
+        existingExpenses.push(expense);
+        expensesByWishlistItem.set(expense.wishlist_item_id, existingExpenses);
+      }
+    }
+
+    const zoneItems = wishlistItems.map((item) => ({
+      id: item.id,
+      name: item.name ?? "Untitled item",
+      allocatedBudget: toNumber(item.budget),
+      amountSpent: expenseTotalsByWishlistItem.get(item.id) ?? 0
+    }));
+
+    const purchasedItems = zoneItems.filter((item) => item.amountSpent > 0);
+    const unpurchasedItems = zoneItems.filter((item) => item.amountSpent <= 0);
+    const allocatedBudget = zoneItems.reduce((sum, item) => sum + item.allocatedBudget, 0);
+    const amountSpent = zoneItems.reduce((sum, item) => sum + item.amountSpent, 0);
+    const purchasedItemRecords = purchasedItems.flatMap((item) => {
+      const itemExpenses = expensesByWishlistItem.get(item.id) ?? [];
+
+      return itemExpenses.map((expense) => {
+        const rawDescription = expense.description?.trim() ?? "";
+        const amount = toNumber(expense.amount);
+
+        return {
+          id: expense.id,
+          wishlistItemId: item.id,
+          purchasedItemName: item.name,
+          actualItemName: item.name,
+          description: rawDescription.length > 0 ? rawDescription : "-",
+          expenseDescription: rawDescription,
+          budget: item.allocatedBudget,
+          amountSpent: amount,
+          difference: item.allocatedBudget - amount,
+          purchaseDate: expense.expense_date ?? null
+        };
+      });
+    });
+
+    return {
+      zone: {
+        id: zone.id,
+        budgetId: zone.budget_id ?? "",
+        name: zone.name ?? "Untitled zone",
+        currency: zone.budgets?.[0]?.currency ?? "SGD"
+      },
+      amountSpent,
+      allocatedBudget,
+      budgetLeft: allocatedBudget - amountSpent,
+      purchasedItems,
+      unpurchasedItems,
+      purchasedItemRecords
+    };
+  },
+
+  getBudgetMembers: async (budgetId: string): Promise<BudgetMember[]> => {
+    const { data, error } = await supabase
+      .from("budget_members")
+      .select("budget_id, user_id, role, invited_by, created_at, updated_at")
+      .eq("budget_id", budgetId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw toServiceError("Failed to list budget members", error);
+    }
+
+    return (data ?? []).map((row) => mapBudgetMemberRow(row as BudgetMemberRow));
+  },
+
+  getBudgetMemberIdentities: async (budgetId: string): Promise<BudgetMemberIdentity[]> => {
+    const { data, error } = await supabase.rpc("list_budget_member_identities", {
+      target_budget_id: budgetId
+    });
+
+    if (error) {
+      throw toServiceError("Failed to list budget member identities", error);
+    }
+
+    return (data ?? []).map((row: BudgetMemberIdentityRow) => mapBudgetMemberIdentityRow(row));
+  },
+
+  inviteBudgetMemberByEmail: async (
+    budgetId: string,
+    email: string,
+    role: BudgetRole
+  ): Promise<BudgetMemberIdentity> => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Email is required.");
+    }
+
+    const executeInvite = async (): Promise<InviteBudgetMemberRow> => {
+      const { data, error } = await supabase.rpc("invite_budget_member_by_email", {
+        target_budget_id: budgetId,
+        target_email: normalizedEmail,
+        target_role: role
+      });
+
+      if (error) {
+        throw toServiceError("Failed to invite budget member", error);
+      }
+
+      const invitedMember = (data as InviteBudgetMemberRow[] | null)?.[0];
+      if (!invitedMember) {
+        throw new Error("Invitation did not return a member record.");
+      }
+
+      return invitedMember;
+    };
+
+    let invitedMember: InviteBudgetMemberRow;
+    try {
+      invitedMember = await executeInvite();
+    } catch (error) {
+      if (!isMissingUserInviteError(error)) {
+        throw error;
+      }
+
+      await inviteAuthUserByEmail(normalizedEmail);
+      invitedMember = await executeInvite();
+    }
+
+    return {
+      userId: invitedMember.member_user_id,
+      role: invitedMember.member_role,
+      email: invitedMember.member_email,
+      firstName: invitedMember.member_first_name
+    };
+  },
+
+  getCurrentUserBudgetRole: async (budgetId: string): Promise<BudgetRole | null> => {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("budget_members")
+      .select("role")
+      .eq("budget_id", budgetId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw toServiceError("Failed to get current user budget role", error);
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return data.role as BudgetRole;
+  },
+
+  upsertBudgetMember: async (
+    budgetId: string,
+    userId: string,
+    role: BudgetRole,
+    invitedBy?: string | null
+  ): Promise<BudgetMember> => {
+    const { data, error } = await supabase
+      .from("budget_members")
+      .upsert(
+        {
+          budget_id: budgetId,
+          user_id: userId,
+          role,
+          invited_by: invitedBy ?? null
+        },
+        { onConflict: "budget_id,user_id" }
+      )
+      .select("budget_id, user_id, role, invited_by, created_at, updated_at")
+      .single();
+
+    if (error) {
+      throw toServiceError("Failed to upsert budget member", error);
+    }
+
+    return mapBudgetMemberRow(data as BudgetMemberRow);
+  },
+
+  removeBudgetMember: async (budgetId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from("budget_members")
+      .delete()
+      .eq("budget_id", budgetId)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw toServiceError("Failed to remove budget member", error);
+    }
+  }
+};

@@ -1,0 +1,41 @@
+---
+description: Francis Says No core product, scope, and engineering guardrails
+alwaysApply: true
+---
+
+# Francis Says No: Core Guardrails
+
+## Product Intent
+- Build a renovation budget intelligence dashboard for first-time Singapore homeowners.
+- Optimize for clarity, proactive insights, and minimal setup.
+- Prefer opinionated defaults over configurability.
+
+## MVP Scope
+- Must support project budgets, zones, wishlist items, expenses, budget health, and proactive warnings.
+- Keep out of scope: marketplace, contractor matching, AI chat assistant, cross-user benchmarking, mobile app, server-heavy logic.
+
+## Data and Intelligence Rules
+- Treat `expenses` as the canonical financial source of truth.
+- Compute intelligence from data; do not persist derived intelligence fields.
+- Keep business logic out of UI components.
+
+## Architecture Boundaries
+- UI components: presentation only.
+- Hooks: orchestration and composition.
+- Services: data and SDK access.
+- Zustand: shared UI state only.
+- React Query: async client state.
+- No direct SDK usage in UI components.
+
+## Technical Constraints
+- Next.js App Router, TypeScript strict, Tailwind + CSS variables, dark mode ready.
+- Visual language: white/black/greys, minimal dashboard, border radius `0`.
+- Keep code modular, short, and replaceable.
+- No `any`, no dead code, no commented-out code.
+- Preserve static-export compatibility and free-tier deployability (Vercel/Firebase App Hosting).
+
+## Reusable Guardrail Snippets
+- "No business logic in components."
+- "No direct SDK usage in UI; use services."
+- "Hooks orchestrate; services access data."
+- "Compute financial insights, do not store them."

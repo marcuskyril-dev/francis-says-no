@@ -8,7 +8,6 @@ import {
   type AddWishlistItemValues
 } from "@/components/zones/add-wishlist-item-dialog";
 import { Card } from "@/components/ui/card";
-import { Navbar } from "@/components/ui/navbar";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCreateExpenseMutation,
@@ -18,10 +17,9 @@ import {
   useUpdateExpenseMutation,
   useZoneDetailQuery
 } from "@/hooks/useProjectQueries";
-import { authService } from "@/services/auth.service";
 import type { PurchasedItemRecord } from "@/types";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
 const formatCurrency = (amount: number, currency: string): string =>
@@ -77,7 +75,6 @@ type SortKey =
 type SortDirection = "asc" | "desc";
 
 const ZoneDetailContent = () => {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const zoneId = useMemo(() => {
     const value = searchParams.get("zoneId");
@@ -93,8 +90,6 @@ const ZoneDetailContent = () => {
     data?.zone.budgetId ?? null,
     Boolean(user) && Boolean(data?.zone.budgetId)
   );
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("purchaseDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
@@ -160,20 +155,6 @@ const ZoneDetailContent = () => {
     setSortDirection(nextKey === "purchaseDate" ? "desc" : "asc");
   };
 
-  const handleSignOut = async () => {
-    setErrorMessage(null);
-    setIsSigningOut(true);
-
-    try {
-      await authService.signOut();
-      router.replace("/login");
-    } catch (signOutError) {
-      setErrorMessage(signOutError instanceof Error ? signOutError.message : "Unable to sign out.");
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
   const handleAddExpenseSubmit = async (values: AddExpenseValues) => {
     if (!canEditBudget) {
       throw new Error("You do not have permission to add expenses for this budget.");
@@ -235,11 +216,6 @@ const ZoneDetailContent = () => {
   return (
     <AuthGuard>
       <main className="min-h-screen bg-background text-foreground">
-        <Navbar
-          email={user?.email ?? "Signed in"}
-          onLogout={handleSignOut}
-          isLoggingOut={isSigningOut}
-        />
         <section className="mx-auto max-w-7xl px-6 py-10">
           <header className="mb-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -252,11 +228,6 @@ const ZoneDetailContent = () => {
                 </Link>
                 <h1 className="text-2xl tracking-tight">{data?.zone.name ?? "Zone detail"}</h1>
               </div>
-              {currentBudgetRole ? (
-                <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
-                  Role: {currentBudgetRole}
-                </p>
-              ) : null}
               <div className="flex flex-wrap justify-end gap-2">
                 {canEditBudget ? (
                   <AddWishlistItemDialog
@@ -321,26 +292,21 @@ const ZoneDetailContent = () => {
                 />
               </div>
             </div>
-            {errorMessage ? (
-              <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">{errorMessage}</p>
-            ) : null}
             {error ? <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">{error.message}</p> : null}
           </header>
 
           {isLoading ? (
-            <Card className="max-w-xl">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading zone details...</p>
-            </Card>
+            <p className="text-sm text-center text-zinc-600 dark:text-zinc-400">Loading zone details...</p>
           ) : null}
 
           {!isLoading && !zoneId ? (
-            <Card className="max-w-xl">
+            <Card className="w-full text-center">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">Missing zone id.</p>
             </Card>
           ) : null}
 
           {!isLoading && zoneId && !data ? (
-            <Card className="max-w-xl">
+            <Card className="w-full text-center">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">Zone not found.</p>
             </Card>
           ) : null}
@@ -395,7 +361,7 @@ const ZoneDetailContent = () => {
                   <h2 className="text-lg tracking-tight">Items not purchased</h2>
                   {data.unpurchasedItems.length === 0 ? (
                     <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-                      All items have purchase activity.
+                      You have no items to purchase.
                     </p>
                   ) : (
                     <ul className="mt-3 space-y-2">
@@ -510,9 +476,7 @@ const ZoneDetailPage = () => (
     fallback={
       <main className="min-h-screen bg-background text-foreground">
         <section className="mx-auto max-w-7xl px-6 py-10">
-          <Card className="w-full max-w-xl">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading zone details...</p>
-          </Card>
+          <p className="text-sm text-center text-zinc-600 dark:text-zinc-400">Loading zone details...</p>
         </section>
       </main>
     }

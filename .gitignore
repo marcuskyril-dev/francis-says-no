@@ -33,3 +33,4 @@ supabase/.temp/
 
 # os files
 .DS_Store
+.vercel

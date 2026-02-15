@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -11,7 +10,6 @@ import { BudgetMembersRow } from "@/components/dashboard/budget-members-row";
 import { CreateBudgetDialog } from "@/components/dashboard/create-budget-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Navbar } from "@/components/ui/navbar";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useBudgetMemberIdentitiesQuery,
@@ -22,7 +20,6 @@ import {
   useProjectsQuery
 } from "@/hooks/useProjectQueries";
 import { useProjectStore } from "@/hooks/useProjectStore";
-import { authService } from "@/services/auth.service";
 
 const formatCurrency = (amount: number, currency: string): string =>
   new Intl.NumberFormat("en-SG", {
@@ -32,7 +29,6 @@ const formatCurrency = (amount: number, currency: string): string =>
   }).format(amount);
 
 const HomePage = () => {
-  const router = useRouter();
   const { user } = useAuth();
   const { selectedProjectId, setSelectedProjectId } = useProjectStore();
   const {
@@ -52,8 +48,6 @@ const HomePage = () => {
     selectedProjectId,
     Boolean(user)
   );
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAddZoneDialogOpen, setIsAddZoneDialogOpen] = useState(false);
   const [isCreateBudgetDialogOpen, setIsCreateBudgetDialogOpen] = useState(false);
   const [isBudgetDropdownOpen, setIsBudgetDropdownOpen] = useState(false);
@@ -100,20 +94,6 @@ const HomePage = () => {
   const canEditBudget = currentBudgetRole === "owner" || currentBudgetRole === "admin" || currentBudgetRole === "maintainer";
   const canManageMembers = currentBudgetRole === "owner" || currentBudgetRole === "admin";
 
-  const handleSignOut = async () => {
-    setErrorMessage(null);
-    setIsSigningOut(true);
-
-    try {
-      await authService.signOut();
-      router.replace("/login");
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to sign out.");
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
   const handleAddZoneSubmit = async (zoneName: string) => {
     if (!canEditBudget) {
       throw new Error("You do not have permission to add zones to this budget.");
@@ -133,15 +113,6 @@ const HomePage = () => {
   return (
     <AuthGuard>
       <main className="min-h-screen bg-background text-foreground">
-        <Navbar
-          email={
-            selectedProjectId && currentBudgetRole
-              ? `${user?.email ?? "Signed in"} (${currentBudgetRole})`
-              : `${user?.email ?? "Signed in"}`
-          }
-          onLogout={handleSignOut}
-          isLoggingOut={isSigningOut}
-        />
         <section className="mx-auto max-w-7xl px-6 py-10">
           <header className="mb-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -206,9 +177,6 @@ const HomePage = () => {
                 ) : null}
               </div>
             </div>
-            {errorMessage ? (
-              <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">{errorMessage}</p>
-            ) : null}
             {projectsError ? (
               <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">{projectsError.message}</p>
             ) : null}
@@ -264,7 +232,7 @@ const HomePage = () => {
                 return (
                   <Card className="mb-4 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-1">
                         <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Budget</p>
                         <h2 className="text-lg font-semibold tracking-tight">{dashboardData.budget.name}</h2>
                       </div>

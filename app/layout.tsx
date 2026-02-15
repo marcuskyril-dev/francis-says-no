@@ -3,6 +3,7 @@ import { Geist_Mono } from "next/font/google";
 import { ReactNode } from "react";
 
 import { Providers } from "@/app/providers";
+import { Navbar } from "@/components/ui/navbar";
 
 import "./globals.css";
 
@@ -27,6 +28,7 @@ const RootLayout = ({ children }: RootLayoutProps) => (
     <body className={`${geistMono.variable} font-sans antialiased`}>
       <Providers>
         <div className="flex min-h-screen flex-col">
+          <Navbar />
           <main className="flex-1">{children}</main>
           <footer className="border-t px-4 py-3 text-center text-sm text-muted-foreground">
             Francis Says No {new Date().getFullYear()}

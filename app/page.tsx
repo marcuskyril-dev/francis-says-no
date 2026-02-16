@@ -273,10 +273,19 @@ const HomePage = () => {
                         <div className="flex items-center justify-between">
                           <dt className="text-zinc-600 dark:text-zinc-400">Amount left</dt>
                           <dd>
-                            {formatCurrency(
-                              zone.allocatedBudget - zone.amountSpent,
-                              dashboardData.budget.currency
-                            )}
+                            <span
+                              style={zone.allocatedBudget - zone.amountSpent < 0 ? { color: "#CC1000" } : undefined}
+                            >
+                              {zone.allocatedBudget - zone.amountSpent < 0
+                                ? `(${formatCurrency(
+                                  Math.abs(zone.allocatedBudget - zone.amountSpent),
+                                  dashboardData.budget.currency
+                                )})`
+                                : formatCurrency(
+                                  zone.allocatedBudget - zone.amountSpent,
+                                  dashboardData.budget.currency
+                                )}
+                            </span>
                           </dd>
                         </div>
                       </dl>

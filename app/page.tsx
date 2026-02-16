@@ -113,7 +113,7 @@ const HomePage = () => {
   return (
     <AuthGuard>
       <main className="min-h-screen bg-background text-foreground">
-        <section className="mx-auto max-w-7xl px-6 py-10">
+        <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
           <header className="mb-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div ref={budgetDropdownRef} className="relative">
@@ -121,7 +121,7 @@ const HomePage = () => {
                   type="button"
                   onClick={() => setIsBudgetDropdownOpen((previousValue) => !previousValue)}
                   disabled={isProjectsLoading || projects.length === 0}
-                  className="mt-1 inline-flex min-w-56 items-center gap-3 bg-transparent text-left text-2xl tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-1 inline-flex min-w-56 items-center gap-3 bg-transparent text-left text-xl md:text-2xl tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   aria-haspopup="listbox"
                   aria-expanded={isBudgetDropdownOpen}
                 >
@@ -231,7 +231,7 @@ const HomePage = () => {
 
                 return (
                   <Card className="mb-4 flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between">
                       <div className="flex flex-col gap-1">
                         <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Budget</p>
                         <h2 className="text-lg font-semibold tracking-tight">{dashboardData.budget.name}</h2>
@@ -263,20 +263,21 @@ const HomePage = () => {
                       <h2 className="mt-2 text-lg font-semibold tracking-tight">{zone.name}</h2>
                       <dl className="mt-4 space-y-2 text-sm">
                         <div className="flex items-center justify-between">
-                          <dt className="text-zinc-600 dark:text-zinc-400">Allocated budget</dt>
-                          <dd>{formatCurrency(zone.allocatedBudget, dashboardData.budget.currency)}</dd>
-                        </div>
-                        <div className="flex items-center justify-between">
                           <dt className="text-zinc-600 dark:text-zinc-400">Amount spent</dt>
                           <dd>{formatCurrency(zone.amountSpent, dashboardData.budget.currency)}</dd>
                         </div>
                         <div className="flex items-center justify-between">
-                          <dt className="text-zinc-600 dark:text-zinc-400">Items purchased</dt>
-                          <dd>{zone.itemsPurchased}</dd>
+                          <dt className="text-zinc-600 dark:text-zinc-400">Allocated budget</dt>
+                          <dd>{formatCurrency(zone.allocatedBudget, dashboardData.budget.currency)}</dd>
                         </div>
                         <div className="flex items-center justify-between">
-                          <dt className="text-zinc-600 dark:text-zinc-400">Items left</dt>
-                          <dd>{zone.itemsLeftToPurchase}</dd>
+                          <dt className="text-zinc-600 dark:text-zinc-400">Amount left</dt>
+                          <dd>
+                            {formatCurrency(
+                              zone.allocatedBudget - zone.amountSpent,
+                              dashboardData.budget.currency
+                            )}
+                          </dd>
                         </div>
                       </dl>
                     </Card>

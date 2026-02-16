@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "latest",
     "@tanstack/react-query": "latest",
     "clsx": "^2.1.1",
+    "lucide-react": "^0.564.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",

@@ -216,7 +216,7 @@ const ZoneDetailContent = () => {
   return (
     <AuthGuard>
       <main className="min-h-screen bg-background text-foreground">
-        <section className="mx-auto max-w-7xl px-6 py-10">
+        <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
           <header className="mb-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
@@ -228,7 +228,7 @@ const ZoneDetailContent = () => {
                 </Link>
                 <h1 className="text-2xl tracking-tight">{data?.zone.name ?? "Zone detail"}</h1>
               </div>
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex flex-col md:flex-row md:items-end md:justify-end gap-2">
                 {canEditBudget ? (
                   <AddWishlistItemDialog
                     open={isAddWishlistItemDialogOpen}
@@ -475,7 +475,7 @@ const ZoneDetailPage = () => (
   <Suspense
     fallback={
       <main className="min-h-screen bg-background text-foreground">
-        <section className="mx-auto max-w-7xl px-6 py-10">
+        <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
           <p className="text-sm text-center text-zinc-600 dark:text-zinc-400">Loading zone details...</p>
         </section>
       </main>

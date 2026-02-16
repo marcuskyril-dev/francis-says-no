@@ -30,8 +30,9 @@ const RootLayout = ({ children }: RootLayoutProps) => (
         <div className="flex min-h-screen flex-col">
           <Navbar />
           <main className="flex-1">{children}</main>
-          <footer className="border-t px-4 py-3 text-center text-sm text-muted-foreground">
-            Francis Says No {new Date().getFullYear()}
+          <footer className="border-t px-4 py-3 text-center text-sm text-muted-foreground flex flex-col">
+            <span className="text-sm">Francis Says No</span>
+            <span className="text-xs text-zinc-600 dark:text-zinc-400">{new Date().getFullYear()}</span>
           </footer>
         </div>
       </Providers>

@@ -1,6 +1,7 @@
 type BudgetProgressBarProps = {
   amountSpent: number;
   allocatedBudget: number;
+  unbudgetedItems: number;
   currency: string;
   formatCurrency: (amount: number, currency: string) => string;
 };
@@ -8,6 +9,7 @@ type BudgetProgressBarProps = {
 export const BudgetProgressBar = ({
   amountSpent,
   allocatedBudget,
+  unbudgetedItems,
   currency,
   formatCurrency
 }: BudgetProgressBarProps) => {
@@ -33,6 +35,10 @@ export const BudgetProgressBar = ({
               {amountLeft < 0 ? `(${formatCurrency(Math.abs(amountLeft), currency)})` : formatCurrency(amountLeft, currency)}
             </span>
           </dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-zinc-600 dark:text-zinc-400">Unbudgeted items</dt>
+          <dd>{unbudgetedItems}</dd>
         </div>
       </dl>
 

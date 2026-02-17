@@ -61,6 +61,7 @@ export interface ZoneDashboardMetrics {
 export interface ProjectDashboardData {
   budget: BudgetDashboardSummary;
   zones: ZoneDashboardMetrics[];
+  unbudgetedItems: number;
 }
 
 export interface ZoneDetailItem {
@@ -69,7 +70,10 @@ export interface ZoneDetailItem {
   allocatedBudget: number;
   amountSpent: number;
   mustPurchaseBefore: string | null;
+  status: WishlistItemStatus;
 }
+
+export type WishlistItemStatus = "not_started" | "in_progress" | "completed";
 
 export interface PurchasedItemRecord {
   id: string;
@@ -89,6 +93,7 @@ export interface PurchasedItemRecord {
   contactPersonMobile: string | null;
   companyBrandName: string | null;
   deliveryScheduled: boolean;
+  status: WishlistItemStatus;
 }
 
 export interface ZoneDetailData {
@@ -118,4 +123,5 @@ export interface DeliveryScheduleItem {
   contactPersonMobile: string | null;
   companyBrandName: string | null;
   deliveryScheduled: boolean;
+  status: WishlistItemStatus;
 }

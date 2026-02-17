@@ -14,8 +14,10 @@ import {
   useDeliveryScheduleQuery,
   useProjectExpensesQuery,
   useProjectsQuery,
+  useResetWishlistItemStatusIfNoExpensesMutation,
   useSetWishlistItemScheduleDatesMutation,
-  useUpdateExpenseMutation
+  useUpdateExpenseMutation,
+  useUpdateWishlistItemStatusMutation
 } from "@/hooks/useProjectQueries";
 import { useProjectStore } from "@/hooks/useProjectStore";
 import type { DeliveryScheduleItem, ZoneDetailItem } from "@/types";
@@ -81,6 +83,8 @@ const DeliverySchedulePage = () => {
   const updateExpenseMutation = useUpdateExpenseMutation(null);
   const deleteExpenseMutation = useDeleteExpenseMutation(null);
   const setWishlistItemScheduleDatesMutation = useSetWishlistItemScheduleDatesMutation(null);
+  const updateWishlistItemStatusMutation = useUpdateWishlistItemStatusMutation(null);
+  const resetWishlistItemStatusIfNoExpensesMutation = useResetWishlistItemStatusIfNoExpensesMutation(null);
   const [sortKey, setSortKey] = useState<SortKey>("deliveryDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false);
@@ -151,7 +155,8 @@ const DeliverySchedulePage = () => {
         name: item.wishlistItemName,
         allocatedBudget: 0,
         amountSpent: 0,
-        mustPurchaseBefore: null
+        mustPurchaseBefore: null,
+        status: item.status
       })),
     [scheduleItems]
   );
@@ -198,6 +203,10 @@ const DeliverySchedulePage = () => {
       description: values.description,
       expenseDate: values.expenseDate
     });
+    await updateWishlistItemStatusMutation.mutateAsync({
+      wishlistItemId: values.wishlistItemId,
+      status: values.status
+    });
 
     await setWishlistItemScheduleDatesMutation.mutateAsync({
       wishlistItemId: values.wishlistItemId,
@@ -228,8 +237,12 @@ const DeliverySchedulePage = () => {
     if (!selectedExpenseId) {
       throw new Error("Expense id is required.");
     }
+    if (!selectedScheduleItem) {
+      throw new Error("Wishlist item is required.");
+    }
 
     await deleteExpenseMutation.mutateAsync(selectedExpenseId);
+    await resetWishlistItemStatusIfNoExpensesMutation.mutateAsync(selectedScheduleItem.wishlistItemId);
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: queryKeys.deliverySchedule(selectedProjectId ?? "none")
@@ -378,17 +391,28 @@ const DeliverySchedulePage = () => {
                 setSelectedScheduleItem(null);
                 updateExpenseMutation.reset();
                 deleteExpenseMutation.reset();
+                updateWishlistItemStatusMutation.reset();
+                resetWishlistItemStatusIfNoExpensesMutation.reset();
                 setWishlistItemScheduleDatesMutation.reset();
               }
             }}
             onUpdate={handleEditExpenseSubmit}
             onDelete={handleDeleteExpense}
-            isUpdating={updateExpenseMutation.isPending || setWishlistItemScheduleDatesMutation.isPending}
-            isDeleting={deleteExpenseMutation.isPending}
+            isUpdating={
+              updateExpenseMutation.isPending ||
+              updateWishlistItemStatusMutation.isPending ||
+              setWishlistItemScheduleDatesMutation.isPending
+            }
+            isDeleting={
+              deleteExpenseMutation.isPending ||
+              resetWishlistItemStatusIfNoExpensesMutation.isPending
+            }
             allowDelete
             errorMessage={
               updateExpenseMutation.error?.message ??
               deleteExpenseMutation.error?.message ??
+              updateWishlistItemStatusMutation.error?.message ??
+              resetWishlistItemStatusIfNoExpensesMutation.error?.message ??
               setWishlistItemScheduleDatesMutation.error?.message ??
               null
             }
@@ -403,6 +427,7 @@ const DeliverySchedulePage = () => {
                   expenseDate: toDateInputValue(
                     latestExpenseByWishlistItemId.get(selectedScheduleItem.wishlistItemId)?.expenseDate ?? null
                   ),
+                  status: selectedScheduleItem.status,
                   deliveryDate: toDateInputValue(selectedScheduleItem.deliveryDate),
                   installationDate: toDateInputValue(selectedScheduleItem.installationDate),
                   deliveryScheduled: selectedScheduleItem.deliveryScheduled,

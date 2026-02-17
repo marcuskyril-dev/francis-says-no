@@ -34,7 +34,7 @@ const parseDateValue = (value: string | null): number | null => {
 
 const getIsActioned = (item: ZoneDetailItem, field: NotificationField): boolean => {
   if (field === "mustPurchaseBefore") {
-    return item.amountSpent > 0;
+    return item.status === "in_progress" || item.status === "completed";
   }
 
   return false;

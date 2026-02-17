@@ -5,13 +5,14 @@ import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import type { ZoneDetailItem } from "@/types";
+import type { WishlistItemStatus, ZoneDetailItem } from "@/types";
 
 const formControlClassName =
   "h-10 w-full border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground";
 
 export type AddExpenseValues = {
   wishlistItemId: string;
+  status: WishlistItemStatus;
   amount: number;
   description: string;
   expenseDate: string;
@@ -52,6 +53,7 @@ export const AddExpenseDialog = ({
   } = useForm<AddExpenseValues>({
     defaultValues: {
       wishlistItemId: "",
+      status: "in_progress",
       amount: 0,
       description: "",
       expenseDate: "",
@@ -155,6 +157,21 @@ export const AddExpenseDialog = ({
             className={formControlClassName}
           />
           {errors.amount ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.amount.message}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-status" className="text-sm">
+            Purchase status
+          </label>
+          <select
+            id="expense-status"
+            {...register("status")}
+            className={formControlClassName}
+          >
+            <option value="not_started">Not started</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
         </div>
 
         <div className="space-y-2">

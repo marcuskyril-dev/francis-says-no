@@ -5,6 +5,7 @@ import type {
   DeliveryScheduleItem,
   Project,
   ProjectDashboardData,
+  WishlistItemStatus,
   ZoneDetailData
 } from "@/types";
 import { supabase, toServiceError } from "@/services/supabase";
@@ -35,6 +36,7 @@ interface WishlistItemRow {
   zone_id: string;
   budget?: number | string | null;
   must_purchase_before?: string | null;
+  status: WishlistItemStatus;
 }
 
 interface WishlistItemDetailRow {
@@ -43,6 +45,7 @@ interface WishlistItemDetailRow {
   name: string | null;
   budget: number | string | null;
   must_purchase_before: string | null;
+  status: WishlistItemStatus;
 }
 
 interface ExpenseSummaryRow {
@@ -73,6 +76,7 @@ interface DeliveryScheduleRow {
   id: string;
   name: string | null;
   zone_id: string;
+  status: WishlistItemStatus;
   zones:
     | {
       id: string;
@@ -223,14 +227,15 @@ const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboar
         totalBudget: Number(budgetRow.total_budget),
         currency: budgetRow.currency ?? "SGD"
       },
-      zones: []
+      zones: [],
+      unbudgetedItems: 0
     };
   }
 
   const zoneIds = zones.map((zone) => zone.id);
   const { data: wishlistData, error: wishlistError } = await supabase
     .from("wishlist_items")
-    .select("id, zone_id, budget")
+    .select("id, zone_id, budget, status")
     .in("zone_id", zoneIds);
 
   if (wishlistError) {
@@ -273,9 +278,10 @@ const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboar
 
   const zoneMetrics = zones.map((zone) => {
     const zoneWishlistIds = wishlistIdsByZone.get(zone.id) ?? [];
-    const itemsPurchased = zoneWishlistIds.filter((wishlistId) =>
-      expenseTotalsByWishlistItem.has(wishlistId)
-    ).length;
+    const itemsPurchased = zoneWishlistIds.filter((wishlistId) => {
+      const wishlistItem = wishlistItems.find((item) => item.id === wishlistId);
+      return wishlistItem ? wishlistItem.status !== "not_started" : false;
+    }).length;
     const amountSpent = zoneWishlistIds.reduce(
       (sum, wishlistId) => sum + (expenseTotalsByWishlistItem.get(wishlistId) ?? 0),
       0
@@ -290,6 +296,9 @@ const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboar
       itemsLeftToPurchase: Math.max(zoneWishlistIds.length - itemsPurchased, 0)
     };
   });
+  const unbudgetedItems = wishlistItems.filter(
+    (item) => item.status === "not_started" && toNumber(item.budget) === 0
+  ).length;
 
   return {
     budget: {
@@ -298,7 +307,8 @@ const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboar
       totalBudget: Number(budgetRow.total_budget),
       currency: budgetRow.currency ?? "SGD"
     },
-    zones: zoneMetrics
+    zones: zoneMetrics,
+    unbudgetedItems
   };
 };
 
@@ -432,6 +442,14 @@ export const projectService = {
     }
   },
 
+  deleteZone: async (zoneId: string): Promise<void> => {
+    const { error } = await supabase.from("zones").delete().eq("id", zoneId);
+
+    if (error) {
+      throw toServiceError("Failed to delete zone", error);
+    }
+  },
+
   createWishlistItem: async (
     zoneId: string,
     name: string,
@@ -495,6 +513,48 @@ export const projectService = {
 
     if (error) {
       throw toServiceError("Failed to update wishlist item", error);
+    }
+  },
+
+  updateWishlistItemStatus: async (
+    wishlistItemId: string,
+    status: WishlistItemStatus
+  ): Promise<void> => {
+    const { error } = await supabase
+      .from("wishlist_items")
+      .update({
+        status
+      })
+      .eq("id", wishlistItemId);
+
+    if (error) {
+      throw toServiceError("Failed to update wishlist item status", error);
+    }
+  },
+
+  resetWishlistItemStatusIfNoExpenses: async (wishlistItemId: string): Promise<void> => {
+    const { count, error: countError } = await supabase
+      .from("expenses")
+      .select("id", { count: "exact", head: true })
+      .eq("wishlist_item_id", wishlistItemId);
+
+    if (countError) {
+      throw toServiceError("Failed to count wishlist item expenses", countError);
+    }
+
+    if ((count ?? 0) > 0) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("wishlist_items")
+      .update({
+        status: "not_started" as WishlistItemStatus
+      })
+      .eq("id", wishlistItemId);
+
+    if (error) {
+      throw toServiceError("Failed to reset wishlist item status", error);
     }
   },
 
@@ -579,7 +639,7 @@ export const projectService = {
     const zone = zoneData as ZoneRow;
     const { data: wishlistData, error: wishlistError } = await supabase
       .from("wishlist_items")
-      .select("id, zone_id, name, budget, must_purchase_before")
+      .select("id, zone_id, name, budget, must_purchase_before, status")
       .eq("zone_id", zoneId)
       .order("created_at", { ascending: true });
 
@@ -671,11 +731,14 @@ export const projectService = {
       name: item.name ?? "Untitled item",
       allocatedBudget: toNumber(item.budget),
       amountSpent: expenseTotalsByWishlistItem.get(item.id) ?? 0,
-      mustPurchaseBefore: item.must_purchase_before
+      mustPurchaseBefore: item.must_purchase_before,
+      status: item.status
     }));
 
-    const purchasedItems = zoneItems.filter((item) => item.amountSpent > 0);
-    const unpurchasedItems = zoneItems.filter((item) => item.amountSpent <= 0);
+    const purchasedItems = zoneItems.filter(
+      (item) => item.status === "in_progress" || item.status === "completed"
+    );
+    const unpurchasedItems = zoneItems.filter((item) => item.status === "not_started");
     const allocatedBudget = zoneItems.reduce((sum, item) => sum + item.allocatedBudget, 0);
     const amountSpent = zoneItems.reduce((sum, item) => sum + item.amountSpent, 0);
     const purchasedItemRecords = purchasedItems.flatMap((item) => {
@@ -702,7 +765,8 @@ export const projectService = {
           contactPersonEmail: eventByWishlistItemId.get(item.id)?.contactPersonEmail ?? null,
           contactPersonMobile: eventByWishlistItemId.get(item.id)?.contactPersonMobile ?? null,
           companyBrandName: eventByWishlistItemId.get(item.id)?.companyBrandName ?? null,
-          deliveryScheduled: eventByWishlistItemId.get(item.id)?.deliveryScheduled ?? false
+          deliveryScheduled: eventByWishlistItemId.get(item.id)?.deliveryScheduled ?? false,
+          status: item.status
         };
       });
     });
@@ -727,7 +791,7 @@ export const projectService = {
     const { data, error } = await supabase
       .from("wishlist_items")
       .select(
-        "id, name, zone_id, zones!inner(id, name, budget_id), wishlist_item_events(event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name)"
+        "id, name, zone_id, status, zones!inner(id, name, budget_id), wishlist_item_events(event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name)"
       )
       .eq("zones.budget_id", budgetId)
       .order("name", { ascending: true });
@@ -761,7 +825,8 @@ export const projectService = {
           contactPersonEmail: contactEvent?.contact_person_email ?? null,
           contactPersonMobile: contactEvent?.contact_person_mobile ?? null,
           companyBrandName: contactEvent?.company_brand_name ?? null,
-          deliveryScheduled
+          deliveryScheduled,
+          status: row.status
         };
       })
       .filter((item) => item.deliveryDate || item.installationDate);

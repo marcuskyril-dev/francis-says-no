@@ -20,16 +20,19 @@ import {
   useCreateExpenseMutation,
   useCreateWishlistItemMutation,
   useCurrentBudgetRoleQuery,
+  useDeleteZoneMutation,
   useDeleteExpenseMutation,
+  useResetWishlistItemStatusIfNoExpensesMutation,
   useSetWishlistItemScheduleDatesMutation,
   useUpdateWishlistItemMutation,
+  useUpdateWishlistItemStatusMutation,
   useUpdateZoneNameMutation,
   useUpdateExpenseMutation,
   useZoneDetailQuery
 } from "@/hooks/useProjectQueries";
 import type { PurchasedItemRecord, ZoneDetailItem } from "@/types";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
 const formatCurrency = (amount: number, currency: string): string =>
@@ -85,6 +88,7 @@ type SortKey =
 type SortDirection = "asc" | "desc";
 
 const ZoneDetailContent = () => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const zoneId = useMemo(() => {
     const value = searchParams.get("zoneId");
@@ -96,9 +100,12 @@ const ZoneDetailContent = () => {
   const updateExpenseMutation = useUpdateExpenseMutation(zoneId);
   const deleteExpenseMutation = useDeleteExpenseMutation(zoneId);
   const setWishlistItemScheduleDatesMutation = useSetWishlistItemScheduleDatesMutation(zoneId);
+  const updateWishlistItemStatusMutation = useUpdateWishlistItemStatusMutation(zoneId);
+  const resetWishlistItemStatusIfNoExpensesMutation = useResetWishlistItemStatusIfNoExpensesMutation(zoneId);
   const createWishlistItemMutation = useCreateWishlistItemMutation(zoneId);
   const updateWishlistItemMutation = useUpdateWishlistItemMutation(zoneId);
   const updateZoneNameMutation = useUpdateZoneNameMutation(zoneId, data?.zone.budgetId ?? null);
+  const deleteZoneMutation = useDeleteZoneMutation(zoneId, data?.zone.budgetId ?? null);
   const { data: currentBudgetRole } = useCurrentBudgetRoleQuery(
     data?.zone.budgetId ?? null,
     Boolean(user) && Boolean(data?.zone.budgetId)
@@ -156,6 +163,8 @@ const ZoneDetailContent = () => {
   const canEditBudget =
     currentBudgetRole === "owner" || currentBudgetRole === "admin" || currentBudgetRole === "maintainer";
   const canDeleteBudgetData = currentBudgetRole === "owner" || currentBudgetRole === "admin";
+  const hasAssociatedZoneItems = (data?.unpurchasedItems.length ?? 0) > 0 || (data?.purchasedItems.length ?? 0) > 0;
+  const canDeleteZone = canDeleteBudgetData && !hasAssociatedZoneItems;
   const zoneItems = useMemo(
     () => (data ? [...data.unpurchasedItems, ...data.purchasedItems] : []),
     [data]
@@ -182,6 +191,10 @@ const ZoneDetailContent = () => {
       amount: values.amount,
       description: values.description,
       expenseDate: values.expenseDate
+    });
+    await updateWishlistItemStatusMutation.mutateAsync({
+      wishlistItemId: values.wishlistItemId,
+      status: values.status
     });
     await setWishlistItemScheduleDatesMutation.mutateAsync({
       wishlistItemId: values.wishlistItemId,
@@ -242,6 +255,10 @@ const ZoneDetailContent = () => {
       description: values.description,
       expenseDate: values.expenseDate
     });
+    await updateWishlistItemStatusMutation.mutateAsync({
+      wishlistItemId: values.wishlistItemId,
+      status: values.status
+    });
     await setWishlistItemScheduleDatesMutation.mutateAsync({
       wishlistItemId: values.wishlistItemId,
       deliveryDate: values.deliveryDate,
@@ -266,6 +283,7 @@ const ZoneDetailContent = () => {
     }
 
     await deleteExpenseMutation.mutateAsync(selectedExpenseRecord.id);
+    await resetWishlistItemStatusIfNoExpensesMutation.mutateAsync(selectedExpenseRecord.wishlistItemId);
     setIsEditExpenseDialogOpen(false);
     setSelectedExpenseRecord(null);
   };
@@ -277,6 +295,23 @@ const ZoneDetailContent = () => {
 
     await updateZoneNameMutation.mutateAsync(zoneName);
     setIsEditZoneDialogOpen(false);
+  };
+
+  const handleDeleteZone = async () => {
+    if (!canDeleteBudgetData) {
+      throw new Error("You do not have permission to delete this zone.");
+    }
+
+    if (!canDeleteZone) {
+      throw new Error("You can only delete a zone with no wishlist or purchased items.");
+    }
+
+    if (!window.confirm("Delete this zone? This action cannot be undone.")) {
+      return;
+    }
+
+    await deleteZoneMutation.mutateAsync();
+    router.push("/");
   };
 
   return (
@@ -296,7 +331,20 @@ const ZoneDetailContent = () => {
                 {canEditBudget ? (
                   <div className="mt-2 flex items-center gap-4">
                     <TextButton onClick={() => setIsEditZoneDialogOpen(true)}>Edit zone</TextButton>
-                    {canDeleteBudgetData ? <TextButton variant="danger">Delete zone</TextButton> : null}
+                    {canDeleteBudgetData ? (
+                      <TextButton
+                        variant="danger"
+                        onClick={handleDeleteZone}
+                        disabled={!canDeleteZone || deleteZoneMutation.isPending}
+                        title={
+                          !canDeleteZone
+                            ? "Delete all wishlist and purchased items in this zone first."
+                            : undefined
+                        }
+                      >
+                        {deleteZoneMutation.isPending ? "Deleting..." : "Delete zone"}
+                      </TextButton>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -323,13 +371,19 @@ const ZoneDetailContent = () => {
                       setIsAddExpenseDialogOpen(isOpen);
                       if (!isOpen) {
                         createExpenseMutation.reset();
+                        updateWishlistItemStatusMutation.reset();
                         setWishlistItemScheduleDatesMutation.reset();
                       }
                     }}
                     onSubmit={handleAddExpenseSubmit}
-                    isSubmitting={createExpenseMutation.isPending}
+                    isSubmitting={
+                      createExpenseMutation.isPending ||
+                      updateWishlistItemStatusMutation.isPending ||
+                      setWishlistItemScheduleDatesMutation.isPending
+                    }
                     errorMessage={
                       createExpenseMutation.error?.message ??
+                      updateWishlistItemStatusMutation.error?.message ??
                       setWishlistItemScheduleDatesMutation.error?.message ??
                       null
                     }
@@ -345,17 +399,28 @@ const ZoneDetailContent = () => {
                       setSelectedExpenseRecord(null);
                       updateExpenseMutation.reset();
                       deleteExpenseMutation.reset();
+                      updateWishlistItemStatusMutation.reset();
+                      resetWishlistItemStatusIfNoExpensesMutation.reset();
                       setWishlistItemScheduleDatesMutation.reset();
                     }
                   }}
                   onUpdate={handleEditExpenseSubmit}
                   onDelete={handleDeleteExpenseSubmit}
-                  isUpdating={updateExpenseMutation.isPending}
-                  isDeleting={deleteExpenseMutation.isPending}
+                  isUpdating={
+                    updateExpenseMutation.isPending ||
+                    updateWishlistItemStatusMutation.isPending ||
+                    setWishlistItemScheduleDatesMutation.isPending
+                  }
+                  isDeleting={
+                    deleteExpenseMutation.isPending ||
+                    resetWishlistItemStatusIfNoExpensesMutation.isPending
+                  }
                   allowDelete={canDeleteBudgetData}
                   errorMessage={
                     updateExpenseMutation.error?.message ??
                     deleteExpenseMutation.error?.message ??
+                    updateWishlistItemStatusMutation.error?.message ??
+                    resetWishlistItemStatusIfNoExpensesMutation.error?.message ??
                     setWishlistItemScheduleDatesMutation.error?.message ??
                     null
                   }
@@ -367,6 +432,7 @@ const ZoneDetailContent = () => {
                         amount: selectedExpenseRecord.amountSpent,
                         description: selectedExpenseRecord.expenseDescription,
                         expenseDate: toDateInputValue(selectedExpenseRecord.purchaseDate),
+                        status: selectedExpenseRecord.status,
                         deliveryDate: toDateInputValue(selectedExpenseRecord.deliveryDate),
                         installationDate: toDateInputValue(selectedExpenseRecord.installationDate),
                         deliveryScheduled: selectedExpenseRecord.deliveryScheduled,
@@ -416,6 +482,9 @@ const ZoneDetailContent = () => {
               </div>
             </div>
             {error ? <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">{error.message}</p> : null}
+            {deleteZoneMutation.error ? (
+              <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">{deleteZoneMutation.error.message}</p>
+            ) : null}
           </header>
 
           {isLoading ? (

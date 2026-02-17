@@ -8,6 +8,7 @@ import { AddZoneDialog } from "@/components/dashboard/add-zone-dialog";
 import { BudgetProgressBar } from "@/components/dashboard/budget-progress-bar";
 import { BudgetMembersRow } from "@/components/dashboard/budget-members-row";
 import { CreateBudgetDialog } from "@/components/dashboard/create-budget-dialog";
+import { ZoneCard } from "@/components/dashboard/zone-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
@@ -248,6 +249,7 @@ const HomePage = () => {
                     <BudgetProgressBar
                       amountSpent={amountSpent}
                       allocatedBudget={allocatedBudget}
+                      unbudgetedItems={dashboardData.unbudgetedItems}
                       currency={dashboardData.budget.currency}
                       formatCurrency={formatCurrency}
                     />
@@ -258,38 +260,11 @@ const HomePage = () => {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {dashboardData.zones.map((zone) => (
                   <Link key={zone.id} href={`/zones?zoneId=${zone.id}`} className="block">
-                    <Card className="h-full">
-                      <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Zone</p>
-                      <h2 className="mt-2 text-lg font-semibold tracking-tight">{zone.name}</h2>
-                      <dl className="mt-4 space-y-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <dt className="text-zinc-600 dark:text-zinc-400">Amount spent</dt>
-                          <dd>{formatCurrency(zone.amountSpent, dashboardData.budget.currency)}</dd>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <dt className="text-zinc-600 dark:text-zinc-400">Allocated budget</dt>
-                          <dd>{formatCurrency(zone.allocatedBudget, dashboardData.budget.currency)}</dd>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <dt className="text-zinc-600 dark:text-zinc-400">Amount left</dt>
-                          <dd>
-                            <span
-                              style={zone.allocatedBudget - zone.amountSpent < 0 ? { color: "#CC1000" } : undefined}
-                            >
-                              {zone.allocatedBudget - zone.amountSpent < 0
-                                ? `(${formatCurrency(
-                                  Math.abs(zone.allocatedBudget - zone.amountSpent),
-                                  dashboardData.budget.currency
-                                )})`
-                                : formatCurrency(
-                                  zone.allocatedBudget - zone.amountSpent,
-                                  dashboardData.budget.currency
-                                )}
-                            </span>
-                          </dd>
-                        </div>
-                      </dl>
-                    </Card>
+                    <ZoneCard
+                      zone={zone}
+                      currency={dashboardData.budget.currency}
+                      formatCurrency={formatCurrency}
+                    />
                   </Link>
                 ))}
                 {canEditBudget ? (

@@ -227,6 +227,29 @@ export const useUpdateZoneNameMutation = (zoneId: string | null, projectId: stri
   });
 };
 
+export const useDeleteZoneMutation = (zoneId: string | null, projectId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!zoneId) {
+        throw new Error("Zone id is required.");
+      }
+
+      await projectService.deleteZone(zoneId);
+    },
+    onSuccess: async () => {
+      if (!projectId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.projectDashboard(projectId)
+      });
+    }
+  });
+};
+
 type UpsertBudgetMemberInput = {
   userId: string;
   role: BudgetRole;
@@ -408,6 +431,49 @@ export const useSetWishlistItemScheduleDatesMutation = (zoneId: string | null) =
         contactPersonMobile: input.contactPersonMobile,
         companyBrandName: input.companyBrandName
       });
+    },
+    onSuccess: async () => {
+      if (!zoneId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.zoneDetail(zoneId)
+      });
+    }
+  });
+};
+
+type UpdateWishlistItemStatusInput = {
+  wishlistItemId: string;
+  status: "not_started" | "in_progress" | "completed";
+};
+
+export const useUpdateWishlistItemStatusMutation = (zoneId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateWishlistItemStatusInput) => {
+      await projectService.updateWishlistItemStatus(input.wishlistItemId, input.status);
+    },
+    onSuccess: async () => {
+      if (!zoneId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.zoneDetail(zoneId)
+      });
+    }
+  });
+};
+
+export const useResetWishlistItemStatusIfNoExpensesMutation = (zoneId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (wishlistItemId: string) => {
+      await projectService.resetWishlistItemStatusIfNoExpenses(wishlistItemId);
     },
     onSuccess: async () => {
       if (!zoneId) {

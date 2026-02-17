@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import clsx from "clsx";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,13 @@ export type EditExpenseValues = {
   amount: number;
   description: string;
   expenseDate: string;
+  deliveryDate: string;
+  installationDate: string;
+  deliveryScheduled: boolean;
+  contactPersonName: string;
+  contactPersonEmail: string;
+  contactPersonMobile: string;
+  companyBrandName: string;
 };
 
 interface EditExpenseDialogProps {
@@ -43,19 +50,31 @@ export const EditExpenseDialog = ({
   items,
   initialValues
 }: EditExpenseDialogProps) => {
+  const [isSameAsDeliveryDate, setIsSameAsDeliveryDate] = useState(false);
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors }
   } = useForm<EditExpenseValues>({
     defaultValues: {
       wishlistItemId: "",
       amount: 0,
       description: "",
-      expenseDate: ""
+      expenseDate: "",
+      deliveryDate: "",
+      installationDate: "",
+      deliveryScheduled: false,
+      contactPersonName: "",
+      contactPersonEmail: "",
+      contactPersonMobile: "",
+      companyBrandName: ""
     }
   });
+  const deliveryDate = watch("deliveryDate");
+  const installationDate = watch("installationDate");
 
   useEffect(() => {
     if (!open || !initialValues) {
@@ -63,18 +82,31 @@ export const EditExpenseDialog = ({
     }
 
     reset(initialValues);
+    setIsSameAsDeliveryDate(false);
   }, [initialValues, open, reset]);
+
+  useEffect(() => {
+    if (!isSameAsDeliveryDate) {
+      return;
+    }
+
+    if ((deliveryDate ?? "") !== (installationDate ?? "")) {
+      setIsSameAsDeliveryDate(false);
+    }
+  }, [deliveryDate, installationDate, isSameAsDeliveryDate]);
 
   const handleOpenChange = (isOpen: boolean): void => {
     onOpenChange(isOpen);
     if (!isOpen) {
       reset();
+      setIsSameAsDeliveryDate(false);
     }
   };
 
   const handleCancel = (): void => {
     onOpenChange(false);
     reset();
+    setIsSameAsDeliveryDate(false);
   };
 
   const handleDelete = async (): Promise<void> => {
@@ -197,6 +229,105 @@ export const EditExpenseDialog = ({
                 {errors.expenseDate ? (
                   <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.expenseDate.message}</p>
                 ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="edit-expense-delivery-date" className="text-sm">
+                  Delivery date (optional)
+                </label>
+                <input
+                  id="edit-expense-delivery-date"
+                  type="date"
+                  {...register("deliveryDate")}
+                  className={formControlClassName}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="edit-expense-installation-date" className="text-sm">
+                  Installation date (optional)
+                </label>
+                <input
+                  id="edit-expense-installation-date"
+                  type="date"
+                  {...register("installationDate")}
+                  className={formControlClassName}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="same-as-delivery-date"
+                  type="checkbox"
+                  checked={isSameAsDeliveryDate}
+                  onChange={(event) => {
+                    const isChecked = event.currentTarget.checked;
+                    setIsSameAsDeliveryDate(isChecked);
+                    if (isChecked) {
+                      setValue("installationDate", deliveryDate ?? "", { shouldDirty: true });
+                    }
+                  }}
+                  className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+                />
+                <label htmlFor="same-as-delivery-date" className="text-sm">
+                  Same as delivery date
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="edit-expense-contact-person-name" className="text-sm">
+                  Contact person name (optional)
+                </label>
+                <input
+                  id="edit-expense-contact-person-name"
+                  {...register("contactPersonName")}
+                  className={formControlClassName}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="edit-expense-contact-person-email" className="text-sm">
+                  Contact person email (optional)
+                </label>
+                <input
+                  id="edit-expense-contact-person-email"
+                  type="email"
+                  {...register("contactPersonEmail")}
+                  className={formControlClassName}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="edit-expense-contact-person-mobile" className="text-sm">
+                  Contact person mobile (optional)
+                </label>
+                <input
+                  id="edit-expense-contact-person-mobile"
+                  {...register("contactPersonMobile")}
+                  className={formControlClassName}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="edit-expense-company-brand-name" className="text-sm">
+                  Company / brand name (optional)
+                </label>
+                <input
+                  id="edit-expense-company-brand-name"
+                  {...register("companyBrandName")}
+                  className={formControlClassName}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="edit-delivery-scheduled"
+                  type="checkbox"
+                  {...register("deliveryScheduled")}
+                  className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+                />
+                <label htmlFor="edit-delivery-scheduled" className="text-sm">
+                  Delivery scheduled
+                </label>
               </div>
 
               {errorMessage ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errorMessage}</p> : null}

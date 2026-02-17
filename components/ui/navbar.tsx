@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrentBudgetRoleQuery } from "@/hooks/useProjectQueries";
 import { useProjectStore } from "@/hooks/useProjectStore";
 import { authService } from "@/services/auth.service";
-import { EllipsisVertical, X } from "lucide-react";
+import { EllipsisVertical } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -74,36 +74,43 @@ export const Navbar = () => {
         <Link href="/" className="text-lg font-semibold tracking-tight">
           FRANCIS SAYS NO
         </Link>
-        <div ref={mobileMenuContainerRef} className="relative flex items-center">
-          <div className="hidden items-center gap-3 md:flex">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">{emailLabel}</span>
-            <Button variant="secondary" onClick={handleLogout} disabled={isLoggingOut}>
-              {isLoggingOut ? "Signing out..." : "Logout"}
-            </Button>
-          </div>
+        <div ref={mobileMenuContainerRef} className="relative flex items-center gap-3">
+          <Link
+            href="/delivery-schedule"
+            className="hidden text-sm text-zinc-700 underline-offset-4 hover:underline dark:text-zinc-300 md:inline-flex"
+          >
+            Delivery schedule
+          </Link>
 
           <button
             type="button"
-            className="inline-flex h-8 w-8 items-center justify-center text-foreground md:hidden"
-            aria-label={isMobileMenuOpen ? "Close account menu" : "Open account menu"}
+            className="inline-flex h-8 w-8 items-center justify-center text-foreground"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMobileMenuOpen}
-            aria-controls="navbar-mobile-menu"
+            aria-controls="navbar-menu"
             onClick={() => setIsMobileMenuOpen((previousValue) => !previousValue)}
           >
-            <span className="sr-only">
-              {isMobileMenuOpen ? "Close account menu" : "Open account menu"}
-            </span>
-            {isMobileMenuOpen ? <X size={20} aria-hidden="true" /> : <EllipsisVertical size={20} aria-hidden="true" />}
+            <span className="sr-only">{isMobileMenuOpen ? "Close menu" : "Open menu"}</span>
+            <EllipsisVertical size={20} aria-hidden="true" />
           </button>
 
           <div
-            id="navbar-mobile-menu"
+            id="navbar-menu"
             aria-hidden={!isMobileMenuOpen}
-            className={`fixed inset-x-0 top-14 z-20 border-b border-border bg-background px-4 py-3 transition-all duration-200 ease-out md:hidden ${isMobileMenuOpen
-                ? "translate-y-0 opacity-100 pointer-events-auto"
-                : "-translate-y-2 opacity-0 pointer-events-none"
+            className={`fixed inset-x-0 top-14 z-20 border-b border-border bg-background px-4 py-3 transition-all duration-200 ease-out md:absolute md:right-0 md:top-10 md:z-30 md:w-72 md:inset-x-auto md:border md:px-3 ${isMobileMenuOpen
+              ? "translate-y-0 opacity-100 pointer-events-auto"
+              : "-translate-y-2 opacity-0 pointer-events-none"
               }`}
           >
+            <div className="mb-3 md:hidden">
+              <Link
+                href="/delivery-schedule"
+                className="block text-sm text-zinc-700 underline-offset-4 hover:underline dark:text-zinc-300"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Delivery schedule
+              </Link>
+            </div>
             <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{emailLabel}</p>
             <Button
               variant="secondary"

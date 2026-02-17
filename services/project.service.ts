@@ -2,6 +2,7 @@ import type {
   BudgetMember,
   BudgetMemberIdentity,
   BudgetRole,
+  DeliveryScheduleItem,
   Project,
   ProjectDashboardData,
   ZoneDetailData
@@ -33,6 +34,7 @@ interface WishlistItemRow {
   id: string;
   zone_id: string;
   budget?: number | string | null;
+  must_purchase_before?: string | null;
 }
 
 interface WishlistItemDetailRow {
@@ -40,6 +42,7 @@ interface WishlistItemDetailRow {
   zone_id: string;
   name: string | null;
   budget: number | string | null;
+  must_purchase_before: string | null;
 }
 
 interface ExpenseSummaryRow {
@@ -53,6 +56,46 @@ interface ExpenseDetailRow {
   amount: number | string;
   description: string | null;
   expense_date: string | null;
+}
+
+interface WishlistItemEventRow {
+  wishlist_item_id: string;
+  event_type: "delivery" | "installation";
+  scheduled_at: string;
+  delivery_scheduled: boolean;
+  contact_person_name: string | null;
+  contact_person_email: string | null;
+  contact_person_mobile: string | null;
+  company_brand_name: string | null;
+}
+
+interface DeliveryScheduleRow {
+  id: string;
+  name: string | null;
+  zone_id: string;
+  zones:
+    | {
+      id: string;
+      name: string | null;
+      budget_id: string;
+    }
+    | Array<{
+      id: string;
+      name: string | null;
+      budget_id: string;
+    }>
+    | null;
+  wishlist_item_events:
+    | Array<{
+      event_type: "delivery" | "installation";
+      scheduled_at: string;
+      delivery_scheduled: boolean;
+      contact_person_name: string | null;
+      contact_person_email: string | null;
+      contact_person_mobile: string | null;
+      company_brand_name: string | null;
+    }>
+    | null;
 }
 
 interface BudgetMemberRow {
@@ -141,6 +184,24 @@ const toNumber = (value: number | string | null | undefined): number => {
   }
 
   return 0;
+};
+
+const sanitizeOptionalDate = (value: string | undefined): string | null => {
+  const sanitizedValue = value?.trim();
+  if (!sanitizedValue || sanitizedValue.length === 0) {
+    return null;
+  }
+
+  return sanitizedValue;
+};
+
+const sanitizeOptionalText = (value: string | undefined): string | null => {
+  const sanitizedValue = value?.trim();
+  if (!sanitizedValue || sanitizedValue.length === 0) {
+    return null;
+  }
+
+  return sanitizedValue;
 };
 
 const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboardData> => {
@@ -358,10 +419,26 @@ export const projectService = {
     return { id: data.id as string };
   },
 
+  updateZoneName: async (zoneId: string, name: string): Promise<void> => {
+    const sanitizedName = name.trim();
+    if (!sanitizedName) {
+      throw new Error("Zone name is required.");
+    }
+
+    const { error } = await supabase.from("zones").update({ name: sanitizedName }).eq("id", zoneId);
+
+    if (error) {
+      throw toServiceError("Failed to update zone", error);
+    }
+  },
+
   createWishlistItem: async (
     zoneId: string,
     name: string,
-    budget: number
+    budget: number,
+    dates?: {
+      mustPurchaseBefore?: string;
+    }
   ): Promise<{ id: string }> => {
     const sanitizedName = name.trim();
     if (!sanitizedName) {
@@ -377,7 +454,8 @@ export const projectService = {
       .insert({
         zone_id: zoneId,
         name: sanitizedName,
-        budget
+        budget,
+        must_purchase_before: sanitizeOptionalDate(dates?.mustPurchaseBefore)
       })
       .select("id")
       .single();
@@ -387,6 +465,100 @@ export const projectService = {
     }
 
     return { id: data.id as string };
+  },
+
+  updateWishlistItem: async (
+    wishlistItemId: string,
+    input: {
+      name: string;
+      budget: number;
+      mustPurchaseBefore?: string;
+    }
+  ): Promise<void> => {
+    const sanitizedName = input.name.trim();
+    if (!sanitizedName) {
+      throw new Error("Wishlist item name is required.");
+    }
+
+    if (!Number.isFinite(input.budget) || input.budget < 0) {
+      throw new Error("Wishlist item budget must be at least 0.");
+    }
+
+    const { error } = await supabase
+      .from("wishlist_items")
+      .update({
+        name: sanitizedName,
+        budget: input.budget,
+        must_purchase_before: sanitizeOptionalDate(input.mustPurchaseBefore)
+      })
+      .eq("id", wishlistItemId);
+
+    if (error) {
+      throw toServiceError("Failed to update wishlist item", error);
+    }
+  },
+
+  setWishlistItemScheduleDates: async (
+    wishlistItemId: string,
+    dates: {
+      deliveryDate?: string;
+      installationDate?: string;
+      deliveryScheduled?: boolean;
+      contactPersonName?: string;
+      contactPersonEmail?: string;
+      contactPersonMobile?: string;
+      companyBrandName?: string;
+    }
+  ): Promise<void> => {
+    const deliveryDate = sanitizeOptionalDate(dates.deliveryDate);
+    const installationDate = sanitizeOptionalDate(dates.installationDate);
+    const deliveryScheduled = dates.deliveryScheduled ?? false;
+    const contactPersonName = sanitizeOptionalText(dates.contactPersonName);
+    const contactPersonEmail = sanitizeOptionalText(dates.contactPersonEmail);
+    const contactPersonMobile = sanitizeOptionalText(dates.contactPersonMobile);
+    const companyBrandName = sanitizeOptionalText(dates.companyBrandName);
+
+    const writeEvent = async (
+      eventType: "delivery" | "installation",
+      scheduledAt: string | null
+    ): Promise<void> => {
+      if (!scheduledAt) {
+        const { error } = await supabase
+          .from("wishlist_item_events")
+          .delete()
+          .eq("wishlist_item_id", wishlistItemId)
+          .eq("event_type", eventType);
+
+        if (error) {
+          throw toServiceError(`Failed to delete ${eventType} event`, error);
+        }
+        return;
+      }
+
+      const { error } = await supabase.from("wishlist_item_events").upsert(
+        {
+          wishlist_item_id: wishlistItemId,
+          event_type: eventType,
+          scheduled_at: scheduledAt,
+          delivery_scheduled: eventType === "delivery" ? deliveryScheduled : false,
+          completed_at: null,
+          contact_person_name: contactPersonName,
+          contact_person_email: contactPersonEmail,
+          contact_person_mobile: contactPersonMobile,
+          company_brand_name: companyBrandName
+        },
+        { onConflict: "wishlist_item_id,event_type" }
+      );
+
+      if (error) {
+        throw toServiceError(`Failed to upsert ${eventType} event`, error);
+      }
+    };
+
+    await Promise.all([
+      writeEvent("delivery", deliveryDate),
+      writeEvent("installation", installationDate)
+    ]);
   },
 
   getZoneDetailById: async (zoneId: string): Promise<ZoneDetailData | null> => {
@@ -407,7 +579,7 @@ export const projectService = {
     const zone = zoneData as ZoneRow;
     const { data: wishlistData, error: wishlistError } = await supabase
       .from("wishlist_items")
-      .select("id, zone_id, name, budget")
+      .select("id, zone_id, name, budget, must_purchase_before")
       .eq("zone_id", zoneId)
       .order("created_at", { ascending: true });
 
@@ -443,11 +615,63 @@ export const projectService = {
       }
     }
 
+    const eventByWishlistItemId = new Map<
+      string,
+      {
+        deliveryDate: string | null;
+        installationDate: string | null;
+        deliveryScheduled: boolean;
+        contactPersonName: string | null;
+        contactPersonEmail: string | null;
+        contactPersonMobile: string | null;
+        companyBrandName: string | null;
+      }
+    >();
+    if (wishlistIds.length > 0) {
+      const { data: eventData, error: eventError } = await supabase
+        .from("wishlist_item_events")
+        .select(
+          "wishlist_item_id, event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name"
+        )
+        .in("wishlist_item_id", wishlistIds);
+
+      if (eventError) {
+        throw toServiceError("Failed to list wishlist item events", eventError);
+      }
+
+      for (const event of (eventData ?? []) as WishlistItemEventRow[]) {
+        const existingEntry = eventByWishlistItemId.get(event.wishlist_item_id) ?? {
+          deliveryDate: null,
+          installationDate: null,
+          deliveryScheduled: false,
+          contactPersonName: null,
+          contactPersonEmail: null,
+          contactPersonMobile: null,
+          companyBrandName: null
+        };
+
+        if (event.event_type === "delivery") {
+          existingEntry.deliveryDate = event.scheduled_at;
+          existingEntry.deliveryScheduled = event.delivery_scheduled;
+        }
+        if (event.event_type === "installation") {
+          existingEntry.installationDate = event.scheduled_at;
+        }
+        existingEntry.contactPersonName = event.contact_person_name ?? existingEntry.contactPersonName;
+        existingEntry.contactPersonEmail = event.contact_person_email ?? existingEntry.contactPersonEmail;
+        existingEntry.contactPersonMobile = event.contact_person_mobile ?? existingEntry.contactPersonMobile;
+        existingEntry.companyBrandName = event.company_brand_name ?? existingEntry.companyBrandName;
+
+        eventByWishlistItemId.set(event.wishlist_item_id, existingEntry);
+      }
+    }
+
     const zoneItems = wishlistItems.map((item) => ({
       id: item.id,
       name: item.name ?? "Untitled item",
       allocatedBudget: toNumber(item.budget),
-      amountSpent: expenseTotalsByWishlistItem.get(item.id) ?? 0
+      amountSpent: expenseTotalsByWishlistItem.get(item.id) ?? 0,
+      mustPurchaseBefore: item.must_purchase_before
     }));
 
     const purchasedItems = zoneItems.filter((item) => item.amountSpent > 0);
@@ -471,7 +695,14 @@ export const projectService = {
           budget: item.allocatedBudget,
           amountSpent: amount,
           difference: item.allocatedBudget - amount,
-          purchaseDate: expense.expense_date ?? null
+          purchaseDate: expense.expense_date ?? null,
+          deliveryDate: eventByWishlistItemId.get(item.id)?.deliveryDate ?? null,
+          installationDate: eventByWishlistItemId.get(item.id)?.installationDate ?? null,
+          contactPersonName: eventByWishlistItemId.get(item.id)?.contactPersonName ?? null,
+          contactPersonEmail: eventByWishlistItemId.get(item.id)?.contactPersonEmail ?? null,
+          contactPersonMobile: eventByWishlistItemId.get(item.id)?.contactPersonMobile ?? null,
+          companyBrandName: eventByWishlistItemId.get(item.id)?.companyBrandName ?? null,
+          deliveryScheduled: eventByWishlistItemId.get(item.id)?.deliveryScheduled ?? false
         };
       });
     });
@@ -490,6 +721,50 @@ export const projectService = {
       unpurchasedItems,
       purchasedItemRecords
     };
+  },
+
+  getDeliveryScheduleByBudgetId: async (budgetId: string): Promise<DeliveryScheduleItem[]> => {
+    const { data, error } = await supabase
+      .from("wishlist_items")
+      .select(
+        "id, name, zone_id, zones!inner(id, name, budget_id), wishlist_item_events(event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name)"
+      )
+      .eq("zones.budget_id", budgetId)
+      .order("name", { ascending: true });
+
+    if (error) {
+      throw toServiceError("Failed to list delivery schedule items", error);
+    }
+
+    return ((data ?? []) as DeliveryScheduleRow[])
+      .map((row) => {
+        const events = row.wishlist_item_events ?? [];
+        const deliveryDate = events.find((event) => event.event_type === "delivery")?.scheduled_at ?? null;
+        const deliveryScheduled = events.find((event) => event.event_type === "delivery")?.delivery_scheduled ?? false;
+        const installationDate =
+          events.find((event) => event.event_type === "installation")?.scheduled_at ?? null;
+        const contactEvent =
+          events.find((event) => event.contact_person_name || event.contact_person_email || event.contact_person_mobile || event.company_brand_name) ??
+          events[0];
+        const zoneName = Array.isArray(row.zones)
+          ? row.zones[0]?.name
+          : row.zones?.name;
+
+        return {
+          wishlistItemId: row.id,
+          wishlistItemName: row.name ?? "Untitled item",
+          zoneId: row.zone_id,
+          zoneName: zoneName ?? "Untitled zone",
+          deliveryDate,
+          installationDate,
+          contactPersonName: contactEvent?.contact_person_name ?? null,
+          contactPersonEmail: contactEvent?.contact_person_email ?? null,
+          contactPersonMobile: contactEvent?.contact_person_mobile ?? null,
+          companyBrandName: contactEvent?.company_brand_name ?? null,
+          deliveryScheduled
+        };
+      })
+      .filter((item) => item.deliveryDate || item.installationDate);
   },
 
   getBudgetMembers: async (budgetId: string): Promise<BudgetMember[]> => {

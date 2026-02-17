@@ -68,6 +68,7 @@ export interface ZoneDetailItem {
   name: string;
   allocatedBudget: number;
   amountSpent: number;
+  mustPurchaseBefore: string | null;
 }
 
 export interface PurchasedItemRecord {
@@ -81,6 +82,13 @@ export interface PurchasedItemRecord {
   amountSpent: number;
   difference: number;
   purchaseDate: string | null;
+  deliveryDate: string | null;
+  installationDate: string | null;
+  contactPersonName: string | null;
+  contactPersonEmail: string | null;
+  contactPersonMobile: string | null;
+  companyBrandName: string | null;
+  deliveryScheduled: boolean;
 }
 
 export interface ZoneDetailData {
@@ -96,4 +104,18 @@ export interface ZoneDetailData {
   purchasedItems: ZoneDetailItem[];
   unpurchasedItems: ZoneDetailItem[];
   purchasedItemRecords: PurchasedItemRecord[];
+}
+
+export interface DeliveryScheduleItem {
+  wishlistItemId: string;
+  wishlistItemName: string;
+  zoneId: string;
+  zoneName: string;
+  deliveryDate: string | null;
+  installationDate: string | null;
+  contactPersonName: string | null;
+  contactPersonEmail: string | null;
+  contactPersonMobile: string | null;
+  companyBrandName: string | null;
+  deliveryScheduled: boolean;
 }

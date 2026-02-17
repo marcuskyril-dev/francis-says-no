@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -8,33 +9,35 @@ import { Dialog } from "@/components/ui/dialog";
 const formControlClassName =
   "h-10 w-full border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground";
 
-export type AddWishlistItemValues = {
+export type EditWishlistItemValues = {
   name: string;
   budget: number;
   mustPurchaseBefore: string;
 };
 
-interface AddWishlistItemDialogProps {
+interface EditWishlistItemDialogProps {
   open: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSubmit: (values: AddWishlistItemValues) => Promise<void>;
+  onSubmit: (values: EditWishlistItemValues) => Promise<void>;
   isSubmitting: boolean;
   errorMessage: string | null;
+  initialValues: EditWishlistItemValues | null;
 }
 
-export const AddWishlistItemDialog = ({
+export const EditWishlistItemDialog = ({
   open,
   onOpenChange,
   onSubmit,
   isSubmitting,
-  errorMessage
-}: AddWishlistItemDialogProps) => {
+  errorMessage,
+  initialValues
+}: EditWishlistItemDialogProps) => {
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors }
-  } = useForm<AddWishlistItemValues>({
+  } = useForm<EditWishlistItemValues>({
     defaultValues: {
       name: "",
       budget: 0,
@@ -42,9 +45,16 @@ export const AddWishlistItemDialog = ({
     }
   });
 
+  useEffect(() => {
+    if (!open || !initialValues) {
+      return;
+    }
+
+    reset(initialValues);
+  }, [initialValues, open, reset]);
+
   const handleOpenChange = (isOpen: boolean): void => {
     onOpenChange(isOpen);
-
     if (!isOpen) {
       reset();
     }
@@ -55,9 +65,8 @@ export const AddWishlistItemDialog = ({
     reset();
   };
 
-  const handleFormSubmit = async (values: AddWishlistItemValues): Promise<void> => {
+  const handleFormSubmit = async (values: EditWishlistItemValues): Promise<void> => {
     await onSubmit(values);
-    reset();
     onOpenChange(false);
   };
 
@@ -65,17 +74,16 @@ export const AddWishlistItemDialog = ({
     <Dialog
       open={open}
       onOpenChange={handleOpenChange}
-      title="Add wishlist item"
-      description="Create a wishlist item in this zone."
-      trigger={<Button variant="secondary">Add wishlist item</Button>}
+      title="Edit wishlist item"
+      description="Update item details and optional purchase deadline."
     >
       <form className="space-y-4" onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="space-y-2">
-          <label htmlFor="wishlist-item-name" className="text-sm">
+          <label htmlFor="edit-wishlist-item-name" className="text-sm">
             Item name
           </label>
           <input
-            id="wishlist-item-name"
+            id="edit-wishlist-item-name"
             {...register("name", {
               required: "Item name is required."
             })}
@@ -85,11 +93,11 @@ export const AddWishlistItemDialog = ({
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="wishlist-item-budget" className="text-sm">
+          <label htmlFor="edit-wishlist-item-budget" className="text-sm">
             Budget
           </label>
           <input
-            id="wishlist-item-budget"
+            id="edit-wishlist-item-budget"
             type="number"
             step="0.01"
             min="0"
@@ -103,17 +111,15 @@ export const AddWishlistItemDialog = ({
             })}
             className={formControlClassName}
           />
-          {errors.budget ? (
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.budget.message}</p>
-          ) : null}
+          {errors.budget ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.budget.message}</p> : null}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="wishlist-item-must-purchase-before" className="text-sm">
+          <label htmlFor="edit-wishlist-item-must-purchase-before" className="text-sm">
             Must purchase before (optional)
           </label>
           <input
-            id="wishlist-item-must-purchase-before"
+            id="edit-wishlist-item-must-purchase-before"
             type="date"
             {...register("mustPurchaseBefore")}
             className={formControlClassName}
@@ -127,7 +133,7 @@ export const AddWishlistItemDialog = ({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save item"}
+            {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
         </div>
       </form>

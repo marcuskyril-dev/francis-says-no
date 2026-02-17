@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,13 @@ export type AddExpenseValues = {
   amount: number;
   description: string;
   expenseDate: string;
+  deliveryDate: string;
+  installationDate: string;
+  deliveryScheduled: boolean;
+  contactPersonName: string;
+  contactPersonEmail: string;
+  contactPersonMobile: string;
+  companyBrandName: string;
 };
 
 interface AddExpenseDialogProps {
@@ -33,36 +41,61 @@ export const AddExpenseDialog = ({
   errorMessage,
   items
 }: AddExpenseDialogProps) => {
+  const [isSameAsDeliveryDate, setIsSameAsDeliveryDate] = useState(false);
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors }
   } = useForm<AddExpenseValues>({
     defaultValues: {
       wishlistItemId: "",
       amount: 0,
       description: "",
-      expenseDate: ""
+      expenseDate: "",
+      deliveryDate: "",
+      installationDate: "",
+      deliveryScheduled: false,
+      contactPersonName: "",
+      contactPersonEmail: "",
+      contactPersonMobile: "",
+      companyBrandName: ""
     }
   });
+  const deliveryDate = watch("deliveryDate");
+  const installationDate = watch("installationDate");
+
+  useEffect(() => {
+    if (!isSameAsDeliveryDate) {
+      return;
+    }
+
+    if ((deliveryDate ?? "") !== (installationDate ?? "")) {
+      setIsSameAsDeliveryDate(false);
+    }
+  }, [deliveryDate, installationDate, isSameAsDeliveryDate]);
 
   const handleOpenChange = (isOpen: boolean): void => {
     onOpenChange(isOpen);
 
     if (!isOpen) {
       reset();
+      setIsSameAsDeliveryDate(false);
     }
   };
 
   const handleCancel = (): void => {
     onOpenChange(false);
     reset();
+    setIsSameAsDeliveryDate(false);
   };
 
   const handleFormSubmit = async (values: AddExpenseValues): Promise<void> => {
     await onSubmit(values);
     reset();
+    setIsSameAsDeliveryDate(false);
     onOpenChange(false);
   };
 
@@ -138,6 +171,105 @@ export const AddExpenseDialog = ({
           </label>
           <input id="expense-date" type="date" {...register("expenseDate", { required: "Expense date is required." })} className={formControlClassName} />
           {errors.expenseDate ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.expenseDate.message}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-delivery-date" className="text-sm">
+            Delivery date (optional)
+          </label>
+          <input
+            id="expense-delivery-date"
+            type="date"
+            {...register("deliveryDate")}
+            className={formControlClassName}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-installation-date" className="text-sm">
+            Installation date (optional)
+          </label>
+          <input
+            id="expense-installation-date"
+            type="date"
+            {...register("installationDate")}
+            className={formControlClassName}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="add-same-as-delivery-date"
+            type="checkbox"
+            checked={isSameAsDeliveryDate}
+            onChange={(event) => {
+              const isChecked = event.currentTarget.checked;
+              setIsSameAsDeliveryDate(isChecked);
+              if (isChecked) {
+                setValue("installationDate", deliveryDate ?? "", { shouldDirty: true });
+              }
+            }}
+            className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+          />
+          <label htmlFor="add-same-as-delivery-date" className="text-sm">
+            Same as delivery date
+          </label>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-contact-person-name" className="text-sm">
+            Contact person name (optional)
+          </label>
+          <input
+            id="expense-contact-person-name"
+            {...register("contactPersonName")}
+            className={formControlClassName}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-contact-person-email" className="text-sm">
+            Contact person email (optional)
+          </label>
+          <input
+            id="expense-contact-person-email"
+            type="email"
+            {...register("contactPersonEmail")}
+            className={formControlClassName}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-contact-person-mobile" className="text-sm">
+            Contact person mobile (optional)
+          </label>
+          <input
+            id="expense-contact-person-mobile"
+            {...register("contactPersonMobile")}
+            className={formControlClassName}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-company-brand-name" className="text-sm">
+            Company / brand name (optional)
+          </label>
+          <input
+            id="expense-company-brand-name"
+            {...register("companyBrandName")}
+            className={formControlClassName}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            id="add-delivery-scheduled"
+            type="checkbox"
+            {...register("deliveryScheduled")}
+            className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+          />
+          <label htmlFor="add-delivery-scheduled" className="text-sm">
+            Delivery scheduled
+          </label>
         </div>
 
         {errorMessage ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errorMessage}</p> : null}

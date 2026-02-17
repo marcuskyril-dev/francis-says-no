@@ -4,20 +4,30 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { AddExpenseDialog, type AddExpenseValues } from "@/components/zones/add-expense-dialog";
 import { EditExpenseDialog, type EditExpenseValues } from "@/components/zones/edit-expense-dialog";
 import {
+  EditWishlistItemDialog,
+  type EditWishlistItemValues
+} from "@/components/zones/edit-wishlist-item-dialog";
+import { EditZoneDialog } from "@/components/zones/edit-zone-dialog";
+import {
   AddWishlistItemDialog,
   type AddWishlistItemValues
 } from "@/components/zones/add-wishlist-item-dialog";
 import { Card } from "@/components/ui/card";
+import { TextButton } from "@/components/ui/text-button";
 import { useAuth } from "@/hooks/useAuth";
+import { useItemDateNotifications } from "@/hooks/useItemDateNotifications";
 import {
   useCreateExpenseMutation,
   useCreateWishlistItemMutation,
   useCurrentBudgetRoleQuery,
   useDeleteExpenseMutation,
+  useSetWishlistItemScheduleDatesMutation,
+  useUpdateWishlistItemMutation,
+  useUpdateZoneNameMutation,
   useUpdateExpenseMutation,
   useZoneDetailQuery
 } from "@/hooks/useProjectQueries";
-import type { PurchasedItemRecord } from "@/types";
+import type { PurchasedItemRecord, ZoneDetailItem } from "@/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -85,7 +95,10 @@ const ZoneDetailContent = () => {
   const createExpenseMutation = useCreateExpenseMutation(zoneId);
   const updateExpenseMutation = useUpdateExpenseMutation(zoneId);
   const deleteExpenseMutation = useDeleteExpenseMutation(zoneId);
+  const setWishlistItemScheduleDatesMutation = useSetWishlistItemScheduleDatesMutation(zoneId);
   const createWishlistItemMutation = useCreateWishlistItemMutation(zoneId);
+  const updateWishlistItemMutation = useUpdateWishlistItemMutation(zoneId);
+  const updateZoneNameMutation = useUpdateZoneNameMutation(zoneId, data?.zone.budgetId ?? null);
   const { data: currentBudgetRole } = useCurrentBudgetRoleQuery(
     data?.zone.budgetId ?? null,
     Boolean(user) && Boolean(data?.zone.budgetId)
@@ -94,8 +107,11 @@ const ZoneDetailContent = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
   const [isAddWishlistItemDialogOpen, setIsAddWishlistItemDialogOpen] = useState(false);
+  const [isEditZoneDialogOpen, setIsEditZoneDialogOpen] = useState(false);
   const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false);
+  const [isEditWishlistItemDialogOpen, setIsEditWishlistItemDialogOpen] = useState(false);
   const [selectedExpenseRecord, setSelectedExpenseRecord] = useState<PurchasedItemRecord | null>(null);
+  const [selectedWishlistItem, setSelectedWishlistItem] = useState<ZoneDetailItem | null>(null);
 
   const sortPurchasedRecords = (records: PurchasedItemRecord[]): PurchasedItemRecord[] =>
     [...records].sort((left, right) => {
@@ -144,6 +160,7 @@ const ZoneDetailContent = () => {
     () => (data ? [...data.unpurchasedItems, ...data.purchasedItems] : []),
     [data]
   );
+  const itemDateNotifications = useItemDateNotifications(zoneItems, data?.purchasedItemRecords ?? []);
 
   const handleSort = (nextKey: SortKey): void => {
     if (sortKey === nextKey) {
@@ -166,6 +183,16 @@ const ZoneDetailContent = () => {
       description: values.description,
       expenseDate: values.expenseDate
     });
+    await setWishlistItemScheduleDatesMutation.mutateAsync({
+      wishlistItemId: values.wishlistItemId,
+      deliveryDate: values.deliveryDate,
+      installationDate: values.installationDate,
+      deliveryScheduled: values.deliveryScheduled,
+      contactPersonName: values.contactPersonName,
+      contactPersonEmail: values.contactPersonEmail,
+      contactPersonMobile: values.contactPersonMobile,
+      companyBrandName: values.companyBrandName
+    });
   };
 
   const handleAddWishlistItemSubmit = async (values: AddWishlistItemValues) => {
@@ -175,8 +202,28 @@ const ZoneDetailContent = () => {
 
     await createWishlistItemMutation.mutateAsync({
       name: values.name,
-      budget: values.budget
+      budget: values.budget,
+      mustPurchaseBefore: values.mustPurchaseBefore
     });
+  };
+
+  const handleEditWishlistItemSubmit = async (values: EditWishlistItemValues) => {
+    if (!canEditBudget) {
+      throw new Error("You do not have permission to edit wishlist items for this budget.");
+    }
+
+    if (!selectedWishlistItem) {
+      return;
+    }
+
+    await updateWishlistItemMutation.mutateAsync({
+      wishlistItemId: selectedWishlistItem.id,
+      name: values.name,
+      budget: values.budget,
+      mustPurchaseBefore: values.mustPurchaseBefore
+    });
+    setIsEditWishlistItemDialogOpen(false);
+    setSelectedWishlistItem(null);
   };
 
   const handleEditExpenseSubmit = async (values: EditExpenseValues) => {
@@ -194,6 +241,16 @@ const ZoneDetailContent = () => {
       amount: values.amount,
       description: values.description,
       expenseDate: values.expenseDate
+    });
+    await setWishlistItemScheduleDatesMutation.mutateAsync({
+      wishlistItemId: values.wishlistItemId,
+      deliveryDate: values.deliveryDate,
+      installationDate: values.installationDate,
+      deliveryScheduled: values.deliveryScheduled,
+      contactPersonName: values.contactPersonName,
+      contactPersonEmail: values.contactPersonEmail,
+      contactPersonMobile: values.contactPersonMobile,
+      companyBrandName: values.companyBrandName
     });
     setIsEditExpenseDialogOpen(false);
     setSelectedExpenseRecord(null);
@@ -213,6 +270,15 @@ const ZoneDetailContent = () => {
     setSelectedExpenseRecord(null);
   };
 
+  const handleEditZoneSubmit = async (zoneName: string) => {
+    if (!canEditBudget) {
+      throw new Error("You do not have permission to edit this zone.");
+    }
+
+    await updateZoneNameMutation.mutateAsync(zoneName);
+    setIsEditZoneDialogOpen(false);
+  };
+
   return (
     <AuthGuard>
       <main className="min-h-screen bg-background text-foreground">
@@ -227,6 +293,12 @@ const ZoneDetailContent = () => {
                   Back to dashboard
                 </Link>
                 <h1 className="text-2xl tracking-tight">{data?.zone.name ?? "Zone detail"}</h1>
+                {canEditBudget ? (
+                  <div className="mt-2 flex items-center gap-4">
+                    <TextButton onClick={() => setIsEditZoneDialogOpen(true)}>Edit zone</TextButton>
+                    {canDeleteBudgetData ? <TextButton variant="danger">Delete zone</TextButton> : null}
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-col md:flex-row md:items-end md:justify-end gap-2">
                 {canEditBudget ? (
@@ -251,11 +323,16 @@ const ZoneDetailContent = () => {
                       setIsAddExpenseDialogOpen(isOpen);
                       if (!isOpen) {
                         createExpenseMutation.reset();
+                        setWishlistItemScheduleDatesMutation.reset();
                       }
                     }}
                     onSubmit={handleAddExpenseSubmit}
                     isSubmitting={createExpenseMutation.isPending}
-                    errorMessage={createExpenseMutation.error?.message ?? null}
+                    errorMessage={
+                      createExpenseMutation.error?.message ??
+                      setWishlistItemScheduleDatesMutation.error?.message ??
+                      null
+                    }
                     items={zoneItems}
                   />
                 ) : null}
@@ -268,6 +345,7 @@ const ZoneDetailContent = () => {
                       setSelectedExpenseRecord(null);
                       updateExpenseMutation.reset();
                       deleteExpenseMutation.reset();
+                      setWishlistItemScheduleDatesMutation.reset();
                     }
                   }}
                   onUpdate={handleEditExpenseSubmit}
@@ -276,7 +354,10 @@ const ZoneDetailContent = () => {
                   isDeleting={deleteExpenseMutation.isPending}
                   allowDelete={canDeleteBudgetData}
                   errorMessage={
-                    updateExpenseMutation.error?.message ?? deleteExpenseMutation.error?.message ?? null
+                    updateExpenseMutation.error?.message ??
+                    deleteExpenseMutation.error?.message ??
+                    setWishlistItemScheduleDatesMutation.error?.message ??
+                    null
                   }
                   items={zoneItems}
                   initialValues={
@@ -285,8 +366,50 @@ const ZoneDetailContent = () => {
                         wishlistItemId: selectedExpenseRecord.wishlistItemId,
                         amount: selectedExpenseRecord.amountSpent,
                         description: selectedExpenseRecord.expenseDescription,
-                        expenseDate: toDateInputValue(selectedExpenseRecord.purchaseDate)
+                        expenseDate: toDateInputValue(selectedExpenseRecord.purchaseDate),
+                        deliveryDate: toDateInputValue(selectedExpenseRecord.deliveryDate),
+                        installationDate: toDateInputValue(selectedExpenseRecord.installationDate),
+                        deliveryScheduled: selectedExpenseRecord.deliveryScheduled,
+                        contactPersonName: selectedExpenseRecord.contactPersonName ?? "",
+                        contactPersonEmail: selectedExpenseRecord.contactPersonEmail ?? "",
+                        contactPersonMobile: selectedExpenseRecord.contactPersonMobile ?? "",
+                        companyBrandName: selectedExpenseRecord.companyBrandName ?? ""
                       }
+                      : null
+                  }
+                />
+                <EditZoneDialog
+                  open={isEditZoneDialogOpen}
+                  onOpenChange={(isOpen) => {
+                    setIsEditZoneDialogOpen(isOpen);
+                    if (!isOpen) {
+                      updateZoneNameMutation.reset();
+                    }
+                  }}
+                  onSubmit={handleEditZoneSubmit}
+                  isSubmitting={updateZoneNameMutation.isPending}
+                  errorMessage={updateZoneNameMutation.error?.message ?? null}
+                  initialName={data?.zone.name ?? null}
+                />
+                <EditWishlistItemDialog
+                  open={isEditWishlistItemDialogOpen}
+                  onOpenChange={(isOpen) => {
+                    setIsEditWishlistItemDialogOpen(isOpen);
+                    if (!isOpen) {
+                      setSelectedWishlistItem(null);
+                      updateWishlistItemMutation.reset();
+                    }
+                  }}
+                  onSubmit={handleEditWishlistItemSubmit}
+                  isSubmitting={updateWishlistItemMutation.isPending}
+                  errorMessage={updateWishlistItemMutation.error?.message ?? null}
+                  initialValues={
+                    selectedWishlistItem
+                      ? {
+                          name: selectedWishlistItem.name,
+                          budget: selectedWishlistItem.allocatedBudget,
+                          mustPurchaseBefore: toDateInputValue(selectedWishlistItem.mustPurchaseBefore)
+                        }
                       : null
                   }
                 />
@@ -313,6 +436,24 @@ const ZoneDetailContent = () => {
 
           {data ? (
             <>
+              {itemDateNotifications.length > 0 ? (
+                <Card className="mb-4 border-[#CC1000]/30">
+                  <h2 className="text-lg tracking-tight">Upcoming reminders</h2>
+                  <ul className="mt-3 space-y-2">
+                    {itemDateNotifications.map((notification) => (
+                      <li key={notification.id} className="text-sm">
+                        <span
+                          className={notification.kind === "overdue" ? "text-[#CC1000]" : "text-zinc-800 dark:text-zinc-200"}
+                        >
+                          {notification.kind === "overdue" ? "Overdue" : "Due soon"}: {notification.itemName} -{" "}
+                          {notification.fieldLabel} by {formatDate(notification.dateValue)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ) : null}
+
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Card>
                   <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
@@ -348,7 +489,22 @@ const ZoneDetailContent = () => {
                   ) : (
                     <ul className="mt-3 space-y-2">
                       {data.purchasedItems.map((item) => (
-                        <li key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                        <li
+                          key={item.id}
+                          className={
+                            canEditBudget
+                              ? "flex cursor-pointer items-center justify-between gap-3 text-sm hover:underline"
+                              : "flex items-center justify-between gap-3 text-sm"
+                          }
+                          onClick={() => {
+                            if (!canEditBudget) {
+                              return;
+                            }
+
+                            setSelectedWishlistItem(item);
+                            setIsEditWishlistItemDialogOpen(true);
+                          }}
+                        >
                           <span>{item.name}</span>
                           <span>{formatCurrency(item.amountSpent, data.zone.currency)}</span>
                         </li>
@@ -366,7 +522,22 @@ const ZoneDetailContent = () => {
                   ) : (
                     <ul className="mt-3 space-y-2">
                       {data.unpurchasedItems.map((item) => (
-                        <li key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                        <li
+                          key={item.id}
+                          className={
+                            canEditBudget
+                              ? "flex cursor-pointer items-center justify-between gap-3 text-sm hover:underline"
+                              : "flex items-center justify-between gap-3 text-sm"
+                          }
+                          onClick={() => {
+                            if (!canEditBudget) {
+                              return;
+                            }
+
+                            setSelectedWishlistItem(item);
+                            setIsEditWishlistItemDialogOpen(true);
+                          }}
+                        >
                           <span>{item.name}</span>
                           <span>{formatCurrency(item.allocatedBudget, data.zone.currency)}</span>
                         </li>

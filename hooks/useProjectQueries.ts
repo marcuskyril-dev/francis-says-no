@@ -8,6 +8,7 @@ import type {
   BudgetMember,
   BudgetMemberIdentity,
   BudgetRole,
+  DeliveryScheduleItem,
   Expense,
   Project,
   ProjectDashboardData,
@@ -22,6 +23,7 @@ export const queryKeys = {
   currentBudgetRole: (projectId: string) => ["current-budget-role", projectId] as const,
   projectExpenses: (projectId: string) => ["project-expenses", projectId] as const,
   projectDashboard: (projectId: string) => ["project-dashboard", projectId] as const,
+  deliverySchedule: (projectId: string) => ["delivery-schedule", projectId] as const,
   zoneDetail: (zoneId: string) => ["zone-detail", zoneId] as const
 };
 
@@ -91,6 +93,22 @@ export const useProjectDashboardQuery = (
       }
 
       return projectService.getDashboardDataByBudgetId(projectId);
+    },
+    enabled: Boolean(projectId) && enabled
+  });
+
+export const useDeliveryScheduleQuery = (
+  projectId: string | null,
+  enabled = true
+): UseQueryResult<DeliveryScheduleItem[], Error> =>
+  useQuery({
+    queryKey: queryKeys.deliverySchedule(projectId ?? "none"),
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error("Project id is required.");
+      }
+
+      return projectService.getDeliveryScheduleByBudgetId(projectId);
     },
     enabled: Boolean(projectId) && enabled
   });
@@ -175,6 +193,36 @@ export const useCreateZoneMutation = (projectId: string | null) => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.projectDashboard(projectId)
       });
+    }
+  });
+};
+
+export const useUpdateZoneNameMutation = (zoneId: string | null, projectId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (zoneName: string) => {
+      if (!zoneId) {
+        throw new Error("Zone id is required.");
+      }
+
+      await projectService.updateZoneName(zoneId, zoneName);
+    },
+    onSuccess: async () => {
+      if (!zoneId) {
+        return;
+      }
+
+      const invalidateQueries = [queryClient.invalidateQueries({ queryKey: queryKeys.zoneDetail(zoneId) })];
+      if (projectId) {
+        invalidateQueries.push(
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.projectDashboard(projectId)
+          })
+        );
+      }
+
+      await Promise.all(invalidateQueries);
     }
   });
 };
@@ -335,9 +383,55 @@ export const useDeleteExpenseMutation = (zoneId: string | null) => {
   });
 };
 
+type SetWishlistItemScheduleDatesInput = {
+  wishlistItemId: string;
+  deliveryDate?: string;
+  installationDate?: string;
+  deliveryScheduled?: boolean;
+  contactPersonName?: string;
+  contactPersonEmail?: string;
+  contactPersonMobile?: string;
+  companyBrandName?: string;
+};
+
+export const useSetWishlistItemScheduleDatesMutation = (zoneId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: SetWishlistItemScheduleDatesInput) => {
+      await projectService.setWishlistItemScheduleDates(input.wishlistItemId, {
+        deliveryDate: input.deliveryDate,
+        installationDate: input.installationDate,
+        deliveryScheduled: input.deliveryScheduled,
+        contactPersonName: input.contactPersonName,
+        contactPersonEmail: input.contactPersonEmail,
+        contactPersonMobile: input.contactPersonMobile,
+        companyBrandName: input.companyBrandName
+      });
+    },
+    onSuccess: async () => {
+      if (!zoneId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.zoneDetail(zoneId)
+      });
+    }
+  });
+};
+
 type CreateWishlistItemInput = {
   name: string;
   budget: number;
+  mustPurchaseBefore?: string;
+};
+
+type UpdateWishlistItemInput = {
+  wishlistItemId: string;
+  name: string;
+  budget: number;
+  mustPurchaseBefore?: string;
 };
 
 export const useCreateWishlistItemMutation = (zoneId: string | null) => {
@@ -349,7 +443,32 @@ export const useCreateWishlistItemMutation = (zoneId: string | null) => {
         throw new Error("Zone id is required.");
       }
 
-      return projectService.createWishlistItem(zoneId, input.name, input.budget);
+      return projectService.createWishlistItem(zoneId, input.name, input.budget, {
+        mustPurchaseBefore: input.mustPurchaseBefore
+      });
+    },
+    onSuccess: async () => {
+      if (!zoneId) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.zoneDetail(zoneId)
+      });
+    }
+  });
+};
+
+export const useUpdateWishlistItemMutation = (zoneId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateWishlistItemInput) => {
+      await projectService.updateWishlistItem(input.wishlistItemId, {
+        name: input.name,
+        budget: input.budget,
+        mustPurchaseBefore: input.mustPurchaseBefore
+      });
     },
     onSuccess: async () => {
       if (!zoneId) {

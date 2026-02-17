@@ -62,6 +62,57 @@ export interface ProjectDashboardData {
   budget: BudgetDashboardSummary;
   zones: ZoneDashboardMetrics[];
   unbudgetedItems: number;
+  contractExpenseSummary: ContractExpenseSummary;
+}
+
+export type ContractExpenseType = "renovation_cost" | "variation_order" | "external_service";
+
+export interface ContractExpenseMilestone {
+  id: string;
+  contractExpenseId: string;
+  sequenceNumber: number;
+  percentage: number | null;
+  amount: number | null;
+  dueDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractExpensePayment {
+  id: string;
+  contractExpenseId: string;
+  amount: number;
+  paidAt: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractExpense {
+  id: string;
+  budgetId: string;
+  expenseType: ContractExpenseType;
+  expenseName: string;
+  expenseDate: string | null;
+  notes: string;
+  vendorName: string;
+  contractTotalAmount: number | null;
+  milestoneTotalAmount: number;
+  paidToDate: number;
+  totalContractCost: number;
+  remainingBalance: number;
+  milestones: ContractExpenseMilestone[];
+  payments: ContractExpensePayment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractExpenseSummary {
+  totalContractCost: number;
+  paidToDate: number;
+  remainingBalance: number;
+  expensesCount: number;
 }
 
 export interface ZoneDetailItem {

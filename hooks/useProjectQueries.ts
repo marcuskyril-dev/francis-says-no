@@ -2,12 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 
+import {
+  contractExpenseService,
+  type ContractExpensePaymentInput
+} from "@/services/contract-expense.service";
 import { expenseService } from "@/services/expense.service";
 import { projectService } from "@/services/project.service";
 import type {
   BudgetMember,
   BudgetMemberIdentity,
   BudgetRole,
+  ContractExpense,
+  ContractExpenseSummary,
+  ContractExpenseType,
   DeliveryScheduleItem,
   Expense,
   Project,
@@ -22,6 +29,8 @@ export const queryKeys = {
   budgetMemberIdentities: (projectId: string) => ["budget-member-identities", projectId] as const,
   currentBudgetRole: (projectId: string) => ["current-budget-role", projectId] as const,
   projectExpenses: (projectId: string) => ["project-expenses", projectId] as const,
+  contractExpenses: (projectId: string) => ["contract-expenses", projectId] as const,
+  contractExpenseSummary: (projectId: string) => ["contract-expense-summary", projectId] as const,
   projectDashboard: (projectId: string) => ["project-dashboard", projectId] as const,
   deliverySchedule: (projectId: string) => ["delivery-schedule", projectId] as const,
   zoneDetail: (zoneId: string) => ["zone-detail", zoneId] as const
@@ -77,6 +86,36 @@ export const useProjectExpensesQuery = (
         throw new Error("Project id is required.");
       }
       return expenseService.listByProjectId(projectId);
+    },
+    enabled: Boolean(projectId) && enabled
+  });
+
+export const useContractExpensesQuery = (
+  projectId: string | null,
+  enabled = true
+): UseQueryResult<ContractExpense[], Error> =>
+  useQuery({
+    queryKey: queryKeys.contractExpenses(projectId ?? "none"),
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error("Project id is required.");
+      }
+      return contractExpenseService.listByBudgetId(projectId);
+    },
+    enabled: Boolean(projectId) && enabled
+  });
+
+export const useContractExpenseSummaryQuery = (
+  projectId: string | null,
+  enabled = true
+): UseQueryResult<ContractExpenseSummary, Error> =>
+  useQuery({
+    queryKey: queryKeys.contractExpenseSummary(projectId ?? "none"),
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error("Project id is required.");
+      }
+      return contractExpenseService.getBudgetSummary(projectId);
     },
     enabled: Boolean(projectId) && enabled
   });
@@ -402,6 +441,91 @@ export const useDeleteExpenseMutation = (zoneId: string | null) => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.zoneDetail(zoneId)
       });
+    }
+  });
+};
+
+type CreateContractExpenseInput = {
+  expenseType: ContractExpenseType;
+  expenseName: string;
+  notes?: string;
+  vendorName: string;
+  contractTotalAmount?: number;
+  payments?: ContractExpensePaymentInput[];
+};
+
+type UpdateContractExpenseInput = CreateContractExpenseInput & {
+  contractExpenseId: string;
+};
+
+export const useCreateContractExpenseMutation = (projectId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateContractExpenseInput) => {
+      if (!projectId) {
+        throw new Error("Project id is required.");
+      }
+      return contractExpenseService.create({
+        budgetId: projectId,
+        ...input
+      });
+    },
+    onSuccess: async () => {
+      if (!projectId) {
+        return;
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contractExpenses(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contractExpenseSummary(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectDashboard(projectId) })
+      ]);
+    }
+  });
+};
+
+export const useUpdateContractExpenseMutation = (projectId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateContractExpenseInput) => {
+      if (!projectId) {
+        throw new Error("Project id is required.");
+      }
+      return contractExpenseService.update({
+        budgetId: projectId,
+        ...input
+      });
+    },
+    onSuccess: async () => {
+      if (!projectId) {
+        return;
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contractExpenses(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contractExpenseSummary(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectDashboard(projectId) })
+      ]);
+    }
+  });
+};
+
+export const useDeleteContractExpenseMutation = (projectId: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (contractExpenseId: string) => {
+      await contractExpenseService.remove(contractExpenseId);
+    },
+    onSuccess: async () => {
+      if (!projectId) {
+        return;
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contractExpenses(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contractExpenseSummary(projectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectDashboard(projectId) })
+      ]);
     }
   });
 };

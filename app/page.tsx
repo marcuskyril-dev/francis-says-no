@@ -229,31 +229,86 @@ const HomePage = () => {
                   0
                 );
                 const amountSpent = dashboardData.zones.reduce((sum, zone) => sum + zone.amountSpent, 0);
+                const totalAmountSpent =
+                  dashboardData.contractExpenseSummary.paidToDate + amountSpent;
 
                 return (
-                  <Card className="mb-4 flex flex-col gap-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between">
-                      <div className="flex flex-col gap-1">
-                        <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Budget</p>
-                        <h2 className="text-lg font-semibold tracking-tight">{dashboardData.budget.name}</h2>
+                  <div className="mb-4">
+                    <Card className="mb-4 flex flex-col gap-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-xs uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Budget</p>
+                          <h2 className="text-lg font-semibold tracking-tight">{dashboardData.budget.name}</h2>
+                          <dl className="text-sm w-full">
+                            <div className="flex items-center justify-between gap-3">
+                              <dt className="text-zinc-600 dark:text-zinc-400">Total spent</dt>
+                              <dd>{formatCurrency(totalAmountSpent, dashboardData.budget.currency)}</dd>
+                            </div>
+                          </dl>
+                        </div>
+
+                        <BudgetMembersRow
+                          members={budgetMemberIdentities}
+                          projectId={selectedProjectId}
+                          canManageMembers={canManageMembers}
+                          currentUserId={user?.id ?? null}
+                        />
                       </div>
+                    </Card>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Card className="flex flex-col gap-4">
+                        <h2 className="text-lg font-semibold tracking-tight">Contracts</h2>
+                        <div className="flex flex-col gap-2">
+                          <dl className="space-y-2 text-sm w-full">
+                            <div className="flex items-center justify-between">
+                              <dt className="text-zinc-600 dark:text-zinc-400">Contract total</dt>
+                              <dd>
+                                {formatCurrency(
+                                  dashboardData.contractExpenseSummary.totalContractCost,
+                                  dashboardData.budget.currency
+                                )}
+                              </dd>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <dt className="text-zinc-600 dark:text-zinc-400">Vendor paid to date</dt>
+                              <dd>
+                                {formatCurrency(
+                                  dashboardData.contractExpenseSummary.paidToDate,
+                                  dashboardData.budget.currency
+                                )}
+                              </dd>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <dt className="text-zinc-600 dark:text-zinc-400">Contract remaining</dt>
+                              <dd>
+                                {formatCurrency(
+                                  dashboardData.contractExpenseSummary.remainingBalance,
+                                  dashboardData.budget.currency
+                                )}
+                              </dd>
+                            </div>
+                          </dl>
 
-                      <BudgetMembersRow
-                        members={budgetMemberIdentities}
-                        projectId={selectedProjectId}
-                        canManageMembers={canManageMembers}
-                        currentUserId={user?.id ?? null}
-                      />
+                          <div>
+                            <Link href="/contracts" className="text-sm underline underline-offset-4">
+                              Manage contract expenses
+                            </Link>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="flex flex-col gap-4">
+                        <h2 className="text-lg font-semibold tracking-tight">Appliances and Furniture</h2>
+                        <BudgetProgressBar
+                          amountSpent={amountSpent}
+                          allocatedBudget={allocatedBudget}
+                          unbudgetedItems={dashboardData.unbudgetedItems}
+                          currency={dashboardData.budget.currency}
+                          formatCurrency={formatCurrency}
+                        />
+                      </Card>
                     </div>
-
-                    <BudgetProgressBar
-                      amountSpent={amountSpent}
-                      allocatedBudget={allocatedBudget}
-                      unbudgetedItems={dashboardData.unbudgetedItems}
-                      currency={dashboardData.budget.currency}
-                      formatCurrency={formatCurrency}
-                    />
-                  </Card>
+                  </div>
                 );
               })()}
 

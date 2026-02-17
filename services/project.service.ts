@@ -2,6 +2,7 @@ import type {
   BudgetMember,
   BudgetMemberIdentity,
   BudgetRole,
+  ContractExpenseSummary,
   DeliveryScheduleItem,
   Project,
   ProjectDashboardData,
@@ -208,6 +209,40 @@ const sanitizeOptionalText = (value: string | undefined): string | null => {
   return sanitizedValue;
 };
 
+const zeroContractExpenseSummary = (): ContractExpenseSummary => ({
+  totalContractCost: 0,
+  paidToDate: 0,
+  remainingBalance: 0,
+  expensesCount: 0
+});
+
+const buildContractExpenseSummary = async (budgetId: string): Promise<ContractExpenseSummary> => {
+  const { data, error } = await supabase
+    .from("project_contract_expense_summaries_v")
+    .select("total_contract_cost, paid_to_date, remaining_balance")
+    .eq("budget_id", budgetId);
+
+  if (error) {
+    throw toServiceError("Failed to build contract expense summary", error);
+  }
+
+  const rows = (data ?? []) as Array<{
+    total_contract_cost: number | string;
+    paid_to_date: number | string;
+    remaining_balance: number | string;
+  }>;
+
+  return rows.reduce(
+    (summary, row) => ({
+      totalContractCost: summary.totalContractCost + toNumber(row.total_contract_cost),
+      paidToDate: summary.paidToDate + toNumber(row.paid_to_date),
+      remainingBalance: summary.remainingBalance + toNumber(row.remaining_balance),
+      expensesCount: summary.expensesCount + 1
+    }),
+    zeroContractExpenseSummary()
+  );
+};
+
 const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboardData> => {
   const { data: zoneData, error: zoneError } = await supabase
     .from("zones")
@@ -228,7 +263,8 @@ const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboar
         currency: budgetRow.currency ?? "SGD"
       },
       zones: [],
-      unbudgetedItems: 0
+      unbudgetedItems: 0,
+      contractExpenseSummary: await buildContractExpenseSummary(budgetRow.id)
     };
   }
 
@@ -308,7 +344,8 @@ const buildDashboardData = async (budgetRow: BudgetRow): Promise<ProjectDashboar
       currency: budgetRow.currency ?? "SGD"
     },
     zones: zoneMetrics,
-    unbudgetedItems
+    unbudgetedItems,
+    contractExpenseSummary: await buildContractExpenseSummary(budgetRow.id)
   };
 };
 

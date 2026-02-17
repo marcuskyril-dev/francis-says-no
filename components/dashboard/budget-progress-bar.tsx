@@ -18,8 +18,8 @@ export const BudgetProgressBar = ({
   const amountLeft = allocatedBudget - amountSpent;
 
   return (
-    <div className="mt-4 md:grid md:grid-cols-4 md:items-end md:gap-8">
-      <dl className="space-y-2 text-sm md:col-span-1">
+    <div className="flex flex-col gap-12">
+      <dl className="space-y-2 text-sm">
         <div className="flex items-center justify-between">
           <dt className="text-zinc-600 dark:text-zinc-400">Amount spent</dt>
           <dd>{formatCurrency(amountSpent, currency)}</dd>
@@ -42,8 +42,8 @@ export const BudgetProgressBar = ({
         </div>
       </dl>
 
-      <div className="relative hidden md:col-span-3 md:block">
-        <div className="h-5 w-full border" style={{ borderColor: "#000000", borderWidth: "1px" }}>
+      <div className="relative hidden md:block">
+        <div className="h-3 w-full border" style={{ borderColor: "#000000", borderWidth: "1px" }}>
           <div className="h-full bg-black" style={{ width: spentMarkerLeft }} />
         </div>
         <div className="pointer-events-none absolute -top-5 left-0 h-8 w-full">

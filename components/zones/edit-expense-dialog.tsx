@@ -1,11 +1,10 @@
 "use client";
 
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import type { WishlistItemStatus, ZoneDetailItem } from "@/types";
 
 const formControlClassName =
@@ -128,239 +127,225 @@ export const EditExpenseDialog = ({
   };
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/40" />
-        <DialogPrimitive.Content
-          className={clsx(
-            "fixed left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2",
-            "border border-border bg-background p-6 text-foreground shadow-none",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-          )}
-        >
-          <div className="flex items-center justify-between gap-4">
-            <DialogPrimitive.Title className="text-lg font-semibold">Edit expense</DialogPrimitive.Title>
-            {allowDelete ? (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting || isUpdating}
-                className="text-xs text-[#CC1000] underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
-              >
-                {isDeleting ? "Deleting..." : "Delete expense"}
-              </button>
-            ) : null}
-          </div>
-          <div className="mt-4">
-            <form className="space-y-4" onSubmit={handleSubmit(handleFormSubmit)}>
-              <div className="space-y-2">
-                <label htmlFor="edit-wishlist-item-id" className="text-sm">
-                  Item
-                </label>
-                <select
-                  id="edit-wishlist-item-id"
-                  {...register("wishlistItemId", {
-                    required: "Item is required."
-                  })}
-                  className={formControlClassName}
-                >
-                  <option value="">Select item</option>
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.wishlistItemId ? (
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.wishlistItemId.message}</p>
-                ) : null}
-              </div>
+    <Dialog open={open} onOpenChange={handleOpenChange} title="Edit expense">
+      {allowDelete ? (
+        <div className="mb-4 flex">
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isDeleting || isUpdating}
+            className="text-xs text-[#CC1000] underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+          >
+            {isDeleting ? "Deleting..." : "Delete expense"}
+          </button>
+        </div>
+      ) : null}
+      <form className="space-y-4" onSubmit={handleSubmit(handleFormSubmit)}>
+        <div className="space-y-2">
+          <label htmlFor="edit-wishlist-item-id" className="text-sm">
+            Item
+          </label>
+          <select
+            id="edit-wishlist-item-id"
+            {...register("wishlistItemId", {
+              required: "Item is required."
+            })}
+            className={formControlClassName}
+          >
+            <option value="">Select item</option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          {errors.wishlistItemId ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.wishlistItemId.message}</p>
+          ) : null}
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-amount" className="text-sm">
-                  Amount
-                </label>
-                <input
-                  id="edit-expense-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...register("amount", {
-                    required: "Amount is required.",
-                    valueAsNumber: true,
-                    min: {
-                      value: 0,
-                      message: "Amount must be at least 0."
-                    }
-                  })}
-                  className={formControlClassName}
-                />
-                {errors.amount ? (
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.amount.message}</p>
-                ) : null}
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-amount" className="text-sm">
+            Amount
+          </label>
+          <input
+            id="edit-expense-amount"
+            type="number"
+            step="0.01"
+            min="0"
+            {...register("amount", {
+              required: "Amount is required.",
+              valueAsNumber: true,
+              min: {
+                value: 0,
+                message: "Amount must be at least 0."
+              }
+            })}
+            className={formControlClassName}
+          />
+          {errors.amount ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.amount.message}</p>
+          ) : null}
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-status" className="text-sm">
-                  Purchase status
-                </label>
-                <select
-                  id="edit-expense-status"
-                  {...register("status")}
-                  className={formControlClassName}
-                >
-                  <option value="not_started">Not started</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-status" className="text-sm">
+            Purchase status
+          </label>
+          <select
+            id="edit-expense-status"
+            {...register("status")}
+            className={formControlClassName}
+          >
+            <option value="not_started">Not started</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-description" className="text-sm">
-                  Description
-                </label>
-                <input
-                  id="edit-expense-description"
-                  {...register("description", {
-                    required: "Description is required."
-                  })}
-                  className={formControlClassName}
-                />
-                {errors.description ? (
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.description.message}</p>
-                ) : null}
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-description" className="text-sm">
+            Description
+          </label>
+          <input
+            id="edit-expense-description"
+            {...register("description", {
+              required: "Description is required."
+            })}
+            className={formControlClassName}
+          />
+          {errors.description ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.description.message}</p>
+          ) : null}
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-date" className="text-sm">
-                  Expense date
-                </label>
-                <input
-                  id="edit-expense-date"
-                  type="date"
-                  {...register("expenseDate", {
-                    required: "Expense date is required."
-                  })}
-                  className={formControlClassName}
-                />
-                {errors.expenseDate ? (
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.expenseDate.message}</p>
-                ) : null}
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-date" className="text-sm">
+            Expense date
+          </label>
+          <input
+            id="edit-expense-date"
+            type="date"
+            {...register("expenseDate", {
+              required: "Expense date is required."
+            })}
+            className={formControlClassName}
+          />
+          {errors.expenseDate ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">{errors.expenseDate.message}</p>
+          ) : null}
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-delivery-date" className="text-sm">
-                  Delivery date (optional)
-                </label>
-                <input
-                  id="edit-expense-delivery-date"
-                  type="date"
-                  {...register("deliveryDate")}
-                  className={formControlClassName}
-                />
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-delivery-date" className="text-sm">
+            Delivery date (optional)
+          </label>
+          <input
+            id="edit-expense-delivery-date"
+            type="date"
+            {...register("deliveryDate")}
+            className={formControlClassName}
+          />
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-installation-date" className="text-sm">
-                  Installation date (optional)
-                </label>
-                <input
-                  id="edit-expense-installation-date"
-                  type="date"
-                  {...register("installationDate")}
-                  className={formControlClassName}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="same-as-delivery-date"
-                  type="checkbox"
-                  checked={isSameAsDeliveryDate}
-                  onChange={(event) => {
-                    const isChecked = event.currentTarget.checked;
-                    setIsSameAsDeliveryDate(isChecked);
-                    if (isChecked) {
-                      setValue("installationDate", deliveryDate ?? "", { shouldDirty: true });
-                    }
-                  }}
-                  className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-                />
-                <label htmlFor="same-as-delivery-date" className="text-sm">
-                  Same as delivery date
-                </label>
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-installation-date" className="text-sm">
+            Installation date (optional)
+          </label>
+          <input
+            id="edit-expense-installation-date"
+            type="date"
+            {...register("installationDate")}
+            className={formControlClassName}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="same-as-delivery-date"
+            type="checkbox"
+            checked={isSameAsDeliveryDate}
+            onChange={(event) => {
+              const isChecked = event.currentTarget.checked;
+              setIsSameAsDeliveryDate(isChecked);
+              if (isChecked) {
+                setValue("installationDate", deliveryDate ?? "", { shouldDirty: true });
+              }
+            }}
+            className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+          />
+          <label htmlFor="same-as-delivery-date" className="text-sm">
+            Same as delivery date
+          </label>
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-contact-person-name" className="text-sm">
-                  Contact person name (optional)
-                </label>
-                <input
-                  id="edit-expense-contact-person-name"
-                  {...register("contactPersonName")}
-                  className={formControlClassName}
-                />
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-contact-person-name" className="text-sm">
+            Contact person name (optional)
+          </label>
+          <input
+            id="edit-expense-contact-person-name"
+            {...register("contactPersonName")}
+            className={formControlClassName}
+          />
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-contact-person-email" className="text-sm">
-                  Contact person email (optional)
-                </label>
-                <input
-                  id="edit-expense-contact-person-email"
-                  type="email"
-                  {...register("contactPersonEmail")}
-                  className={formControlClassName}
-                />
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-contact-person-email" className="text-sm">
+            Contact person email (optional)
+          </label>
+          <input
+            id="edit-expense-contact-person-email"
+            type="email"
+            {...register("contactPersonEmail")}
+            className={formControlClassName}
+          />
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-contact-person-mobile" className="text-sm">
-                  Contact person mobile (optional)
-                </label>
-                <input
-                  id="edit-expense-contact-person-mobile"
-                  {...register("contactPersonMobile")}
-                  className={formControlClassName}
-                />
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-contact-person-mobile" className="text-sm">
+            Contact person mobile (optional)
+          </label>
+          <input
+            id="edit-expense-contact-person-mobile"
+            {...register("contactPersonMobile")}
+            className={formControlClassName}
+          />
+        </div>
 
-              <div className="space-y-2">
-                <label htmlFor="edit-expense-company-brand-name" className="text-sm">
-                  Company / brand name (optional)
-                </label>
-                <input
-                  id="edit-expense-company-brand-name"
-                  {...register("companyBrandName")}
-                  className={formControlClassName}
-                />
-              </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-expense-company-brand-name" className="text-sm">
+            Company / brand name (optional)
+          </label>
+          <input
+            id="edit-expense-company-brand-name"
+            {...register("companyBrandName")}
+            className={formControlClassName}
+          />
+        </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  id="edit-delivery-scheduled"
-                  type="checkbox"
-                  {...register("deliveryScheduled")}
-                  className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-                />
-                <label htmlFor="edit-delivery-scheduled" className="text-sm">
-                  Delivery scheduled
-                </label>
-              </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="edit-delivery-scheduled"
+            type="checkbox"
+            {...register("deliveryScheduled")}
+            className="h-4 w-4 appearance-none border border-border bg-background checked:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+          />
+          <label htmlFor="edit-delivery-scheduled" className="text-sm">
+            Delivery scheduled
+          </label>
+        </div>
 
-              {errorMessage ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errorMessage}</p> : null}
+        {errorMessage ? <p className="text-sm text-zinc-700 dark:text-zinc-300">{errorMessage}</p> : null}
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isUpdating || isDeleting}>
-                  {isUpdating ? "Updating..." : "Update"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isUpdating || isDeleting}>
+            {isUpdating ? "Updating..." : "Update"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 };

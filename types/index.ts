@@ -145,6 +145,7 @@ export interface PurchasedItemRecord {
   companyBrandName: string | null;
   deliveryScheduled: boolean;
   status: WishlistItemStatus;
+  notes: string | null;
 }
 
 export interface ZoneDetailData {
@@ -175,4 +176,5 @@ export interface DeliveryScheduleItem {
   companyBrandName: string | null;
   deliveryScheduled: boolean;
   status: WishlistItemStatus;
+  notes: string | null;
 }

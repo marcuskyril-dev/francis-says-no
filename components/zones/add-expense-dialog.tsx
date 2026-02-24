@@ -23,6 +23,7 @@ export type AddExpenseValues = {
   contactPersonEmail: string;
   contactPersonMobile: string;
   companyBrandName: string;
+  notes: string;
 };
 
 interface AddExpenseDialogProps {
@@ -63,7 +64,8 @@ export const AddExpenseDialog = ({
       contactPersonName: "",
       contactPersonEmail: "",
       contactPersonMobile: "",
-      companyBrandName: ""
+      companyBrandName: "",
+      notes: ""
     }
   });
   const deliveryDate = watch("deliveryDate");
@@ -274,6 +276,17 @@ export const AddExpenseDialog = ({
             id="expense-company-brand-name"
             {...register("companyBrandName")}
             className={formControlClassName}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="expense-notes" className="text-sm">
+            Notes (optional)
+          </label>
+          <textarea
+            id="expense-notes"
+            {...register("notes")}
+            className="w-full border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
           />
         </div>
 

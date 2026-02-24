@@ -204,7 +204,8 @@ const ZoneDetailContent = () => {
       contactPersonName: values.contactPersonName,
       contactPersonEmail: values.contactPersonEmail,
       contactPersonMobile: values.contactPersonMobile,
-      companyBrandName: values.companyBrandName
+      companyBrandName: values.companyBrandName,
+      notes: values.notes
     });
   };
 
@@ -439,7 +440,8 @@ const ZoneDetailContent = () => {
                         contactPersonName: selectedExpenseRecord.contactPersonName ?? "",
                         contactPersonEmail: selectedExpenseRecord.contactPersonEmail ?? "",
                         contactPersonMobile: selectedExpenseRecord.contactPersonMobile ?? "",
-                        companyBrandName: selectedExpenseRecord.companyBrandName ?? ""
+                          companyBrandName: selectedExpenseRecord.companyBrandName ?? "",
+                          notes: selectedExpenseRecord.notes ?? ""
                       }
                       : null
                   }

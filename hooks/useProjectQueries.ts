@@ -539,6 +539,7 @@ type SetWishlistItemScheduleDatesInput = {
   contactPersonEmail?: string;
   contactPersonMobile?: string;
   companyBrandName?: string;
+  notes?: string;
 };
 
 export const useSetWishlistItemScheduleDatesMutation = (zoneId: string | null) => {
@@ -553,7 +554,8 @@ export const useSetWishlistItemScheduleDatesMutation = (zoneId: string | null) =
         contactPersonName: input.contactPersonName,
         contactPersonEmail: input.contactPersonEmail,
         contactPersonMobile: input.contactPersonMobile,
-        companyBrandName: input.companyBrandName
+        companyBrandName: input.companyBrandName,
+        notes: input.notes
       });
     },
     onSuccess: async () => {

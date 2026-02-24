@@ -71,6 +71,7 @@ interface WishlistItemEventRow {
   contact_person_email: string | null;
   contact_person_mobile: string | null;
   company_brand_name: string | null;
+  notes: string | null;
 }
 
 interface DeliveryScheduleRow {
@@ -99,6 +100,7 @@ interface DeliveryScheduleRow {
       contact_person_email: string | null;
       contact_person_mobile: string | null;
       company_brand_name: string | null;
+      notes: string | null;
     }>
     | null;
 }
@@ -605,6 +607,7 @@ export const projectService = {
       contactPersonEmail?: string;
       contactPersonMobile?: string;
       companyBrandName?: string;
+      notes?: string;
     }
   ): Promise<void> => {
     const deliveryDate = sanitizeOptionalDate(dates.deliveryDate);
@@ -614,6 +617,7 @@ export const projectService = {
     const contactPersonEmail = sanitizeOptionalText(dates.contactPersonEmail);
     const contactPersonMobile = sanitizeOptionalText(dates.contactPersonMobile);
     const companyBrandName = sanitizeOptionalText(dates.companyBrandName);
+    const notes = sanitizeOptionalText(dates.notes);
 
     const writeEvent = async (
       eventType: "delivery" | "installation",
@@ -642,7 +646,8 @@ export const projectService = {
           contact_person_name: contactPersonName,
           contact_person_email: contactPersonEmail,
           contact_person_mobile: contactPersonMobile,
-          company_brand_name: companyBrandName
+          company_brand_name: companyBrandName,
+          notes
         },
         { onConflict: "wishlist_item_id,event_type" }
       );
@@ -722,13 +727,14 @@ export const projectService = {
         contactPersonEmail: string | null;
         contactPersonMobile: string | null;
         companyBrandName: string | null;
+        notes: string | null;
       }
     >();
     if (wishlistIds.length > 0) {
       const { data: eventData, error: eventError } = await supabase
         .from("wishlist_item_events")
         .select(
-          "wishlist_item_id, event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name"
+            "wishlist_item_id, event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name, notes"
         )
         .in("wishlist_item_id", wishlistIds);
 
@@ -744,7 +750,8 @@ export const projectService = {
           contactPersonName: null,
           contactPersonEmail: null,
           contactPersonMobile: null,
-          companyBrandName: null
+            companyBrandName: null,
+            notes: null
         };
 
         if (event.event_type === "delivery") {
@@ -758,6 +765,7 @@ export const projectService = {
         existingEntry.contactPersonEmail = event.contact_person_email ?? existingEntry.contactPersonEmail;
         existingEntry.contactPersonMobile = event.contact_person_mobile ?? existingEntry.contactPersonMobile;
         existingEntry.companyBrandName = event.company_brand_name ?? existingEntry.companyBrandName;
+        existingEntry.notes = event.notes ?? existingEntry.notes;
 
         eventByWishlistItemId.set(event.wishlist_item_id, existingEntry);
       }
@@ -803,7 +811,8 @@ export const projectService = {
           contactPersonMobile: eventByWishlistItemId.get(item.id)?.contactPersonMobile ?? null,
           companyBrandName: eventByWishlistItemId.get(item.id)?.companyBrandName ?? null,
           deliveryScheduled: eventByWishlistItemId.get(item.id)?.deliveryScheduled ?? false,
-          status: item.status
+          status: item.status,
+          notes: eventByWishlistItemId.get(item.id)?.notes ?? null
         };
       });
     });
@@ -828,7 +837,7 @@ export const projectService = {
     const { data, error } = await supabase
       .from("wishlist_items")
       .select(
-        "id, name, zone_id, status, zones!inner(id, name, budget_id), wishlist_item_events(event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name)"
+        "id, name, zone_id, status, zones!inner(id, name, budget_id), wishlist_item_events(event_type, scheduled_at, delivery_scheduled, contact_person_name, contact_person_email, contact_person_mobile, company_brand_name, notes)"
       )
       .eq("zones.budget_id", budgetId)
       .order("name", { ascending: true });
@@ -847,6 +856,10 @@ export const projectService = {
         const contactEvent =
           events.find((event) => event.contact_person_name || event.contact_person_email || event.contact_person_mobile || event.company_brand_name) ??
           events[0];
+        const notes =
+          events.find((event) => (event.notes ?? "").trim().length > 0)?.notes ??
+          events[0]?.notes ??
+          null;
         const zoneName = Array.isArray(row.zones)
           ? row.zones[0]?.name
           : row.zones?.name;
@@ -863,7 +876,8 @@ export const projectService = {
           contactPersonMobile: contactEvent?.contact_person_mobile ?? null,
           companyBrandName: contactEvent?.company_brand_name ?? null,
           deliveryScheduled,
-          status: row.status
+          status: row.status,
+          notes
         };
       })
       .filter((item) => item.deliveryDate || item.installationDate);

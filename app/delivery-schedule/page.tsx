@@ -48,7 +48,8 @@ type SortKey =
   | "contactPersonName"
   | "contactPersonEmail"
   | "contactPersonMobile"
-  | "companyBrandName";
+  | "companyBrandName"
+  | "notes";
 type SortDirection = "asc" | "desc";
 
 const toDateInputValue = (value: string | null): string => {
@@ -126,6 +127,10 @@ const DeliverySchedulePage = () => {
         });
       } else if (sortKey === "companyBrandName") {
         comparison = (left.companyBrandName ?? "").localeCompare(right.companyBrandName ?? "", "en", {
+          sensitivity: "base"
+        });
+      } else if (sortKey === "notes") {
+        comparison = (left.notes ?? "").localeCompare(right.notes ?? "", "en", {
           sensitivity: "base"
         });
       } else if (sortKey === "deliveryDate") {
@@ -216,7 +221,8 @@ const DeliverySchedulePage = () => {
       contactPersonName: values.contactPersonName,
       contactPersonEmail: values.contactPersonEmail,
       contactPersonMobile: values.contactPersonMobile,
-      companyBrandName: values.companyBrandName
+      companyBrandName: values.companyBrandName,
+      notes: values.notes
     });
 
     await Promise.all([
@@ -326,11 +332,6 @@ const DeliverySchedulePage = () => {
                         </button>
                       </th>
                       <th className="px-2 py-2">
-                        <button type="button" className="text-left" onClick={() => handleSort("contactPersonEmail")}>
-                          Contact email
-                        </button>
-                      </th>
-                      <th className="px-2 py-2">
                         <button type="button" className="text-left" onClick={() => handleSort("contactPersonMobile")}>
                           Contact mobile
                         </button>
@@ -338,6 +339,11 @@ const DeliverySchedulePage = () => {
                       <th className="px-2 py-2">
                         <button type="button" className="text-left" onClick={() => handleSort("companyBrandName")}>
                           Company / brand
+                        </button>
+                      </th>
+                      <th className="px-2 py-2">
+                        <button type="button" className="text-left" onClick={() => handleSort("notes")}>
+                          Notes
                         </button>
                       </th>
                     </tr>
@@ -372,9 +378,9 @@ const DeliverySchedulePage = () => {
                           {item.deliveryScheduled ? "Yes" : "No"}
                         </td>
                         <td className="px-2 py-2">{item.contactPersonName ?? "-"}</td>
-                        <td className="px-2 py-2">{item.contactPersonEmail ?? "-"}</td>
                         <td className="px-2 py-2">{item.contactPersonMobile ?? "-"}</td>
                         <td className="px-2 py-2">{item.companyBrandName ?? "-"}</td>
+                        <td className="px-2 py-2">{item.notes ?? "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -434,7 +440,8 @@ const DeliverySchedulePage = () => {
                   contactPersonName: selectedScheduleItem.contactPersonName ?? "",
                   contactPersonEmail: selectedScheduleItem.contactPersonEmail ?? "",
                   contactPersonMobile: selectedScheduleItem.contactPersonMobile ?? "",
-                  companyBrandName: selectedScheduleItem.companyBrandName ?? ""
+                  companyBrandName: selectedScheduleItem.companyBrandName ?? "",
+                  notes: selectedScheduleItem.notes ?? ""
                 }
                 : null
             }
